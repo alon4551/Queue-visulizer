@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מאייר ומפרש תור ב-C# | תיכון מקיף דוד טוביהו</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
+</head>
+<body>
+
+    <!-- סרגל עליון -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand-title">
+                <div class="brand-icon">🔄</div>
+                <div>
+                    <h1>מאייר ומפרש תור ב-C# (Queue Visualizer)</h1>
+                    <p>מרכז מדעי המחשב — תיכון מקיף דוד טוביהו | שכבת י"ב (יחידה 4)</p>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- גוף המערכת -->
+    <main class="main-container">
+        
+        <!-- צד ימין בממשק RTL: במת התורים וכרטיסיות מעקב (Visual Panel) -->
+        <section class="visual-panel">
+            
+            <!-- במת מסלולי התורים (Queues Stage) -->
+            <div class="card queue-stage-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>📦</span>
+                        <span>מבנה הנתונים תור (FIFO Queue)</span>
+                    </div>
+                    <span class="badge">Head = ראש (שליפה) | Tail = סוף (הכנסה)</span>
+                </div>
+                <div id="queues-stage" class="queues-stage"></div>
+            </div>
+
+            <!-- כרטיסיות מעקב נתונים (Tabs: Variables Watch & Call Stack) -->
+            <div class="card inspection-tabs-card" id="inspection-card">
+                <div class="card-header tabs-header">
+                    <div class="tabs-nav">
+                        <button type="button" class="tab-btn active" id="tab-btn-vars" data-tab="vars">
+                            <span>🔍</span>
+                            <span>מעקב משתנים (Variables)</span>
+                        </button>
+                        <button type="button" class="tab-btn" id="tab-btn-stack" data-tab="stack">
+                            <span>📚</span>
+                            <span>מחסנית קריאות (Call Stack)</span>
+                        </button>
+                    </div>
+                    <button type="button" class="btn-icon-toggle" id="btn-toggle-tabs" title="מזער / הרחב כרטיסיות">▾</button>
+                </div>
+                <div class="tab-content-container" id="tabs-content-body">
+                    <!-- Variables Tab Pane -->
+                    <div class="tab-pane active" id="tab-pane-vars">
+                        <div class="table-scroll-wrapper">
+                            <table class="watch-table">
+                                <thead>
+                                    <tr>
+                                        <th>שם משתנה</th>
+                                        <th>ערך נוכחי</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="variables-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Call Stack Tab Pane -->
+                    <div class="tab-pane" id="tab-pane-stack">
+                        <div id="call-stack-list" class="call-stack-list"></div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- צד שמאל בממשק RTL: עמודת העורך, הבקרה והפלט (Editor & Control Column) -->
+        <div class="editor-column">
+            
+            <!-- 1. משתנה התור ההתחלתי (עם אפשרות מזעור) -->
+            <section class="card queue-init-card" id="queue-init-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>📥</span>
+                        <span id="queue-init-title">משתנה התור ההתחלתי: <code>Queue&lt;int&gt; q</code></span>
+                    </div>
+                    <div class="card-header-actions">
+                        <span class="badge badge-active" id="queue-init-badge">קלט פעיל ל-q</span>
+                        <button type="button" class="btn-icon-toggle" id="btn-toggle-init-queue" title="מזער / הרחב">▾</button>
+                    </div>
+                </div>
+                <div class="queue-init-body" id="queue-init-body">
+                    <div class="queue-init-input-row" id="queue-init-row">
+                        <input type="text" id="initial-queue-input" class="input-text" placeholder="לדוגמה: 14, 7, 25, 9, 31" value="14, 7, 25, 9, 31">
+                        <button id="btn-set-queue" class="btn btn-primary">עדכן תור</button>
+                        <button id="btn-random-queue" class="btn btn-secondary">🎲 הגרל ערכים</button>
+                    </div>
+                    <p class="queue-init-hint" id="queue-init-hint">ערכי התור ההתחלתי מועברים ישירות לפעולה <code>Main(Queue&lt;int&gt; q)</code> בעורך מטה.</p>
+                </div>
+            </section>
+
+            <!-- 2. סרגל בקרת הרצה (מועבר מעל העורך עם אפשרות מזעור) -->
+            <div class="card controls-card" id="controls-card">
+                <div class="card-header controls-header">
+                    <div class="card-title">
+                        <span>⏯️</span>
+                        <span>בקרת הרצה וניפוי שגיאות</span>
+                    </div>
+                    <div class="card-header-actions">
+                        <div id="step-counter" class="step-info">צעד 1 / 1</div>
+                        <button type="button" class="btn-icon-toggle" id="btn-toggle-controls" title="מזער / הרחב">▾</button>
+                    </div>
+                </div>
+                <div class="controls-bar-body" id="controls-body">
+                    <div class="control-btn-group">
+                        <button id="btn-play" class="btn btn-success">▶ נגן</button>
+                        <button id="btn-step-prev" class="btn btn-secondary">צעד קודם ◀</button>
+                        <button id="btn-step-next" class="btn btn-primary">▶ צעד הבא</button>
+                        <button id="btn-reset" class="btn btn-danger">איפוס ↺</button>
+                    </div>
+                    <div class="speed-control">
+                        <label for="speed-slider">מהירות:</label>
+                        <input type="range" id="speed-slider" class="speed-slider" min="1" max="10" value="6">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. עורך קוד C# ומפרש פונקציות (גמיש ונגלל) -->
+            <section class="card editor-panel" id="editor-panel">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>💻</span>
+                        <span>עורך קוד C# ומפרש פונקציות</span>
+                    </div>
+                    <span class="badge">תחביר C# תקני</span>
+                </div>
+
+                <div class="editor-wrapper">
+                    <div class="line-numbers" id="line-numbers">1<br>2<br>3<br>4<br></div>
+                    <div class="code-container">
+                        <div id="code-highlighter"></div>
+                        <textarea id="code-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+
+                        <!-- חלון השלמה אוטומטית ותיעוד פדגוגי (IntelliSense) -->
+                        <div id="autocomplete-popup" class="autocomplete-popup" style="display: none;">
+                            <div class="autocomplete-list" id="autocomplete-list"></div>
+                            <div class="autocomplete-doc" id="autocomplete-doc"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. סרגל משוב פדגוגי בעברית (צמוד לחלון הפלט עם אפשרות מזעור) -->
+            <div id="status-banner" class="status-banner info">
+                <div class="status-content">
+                    <span id="status-icon" class="status-icon">⚡</span>
+                    <span id="status-text">מוכן להרצה</span>
+                </div>
+                <button type="button" class="btn-icon-toggle" id="btn-toggle-status" title="מזער / הרחב">▾</button>
+            </div>
+
+            <!-- 5. מסוף פלט C# (ממוקם ישירות תחת העורך) -->
+            <div class="card console-card" id="console-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>📟</span>
+                        <span>מסוף פלט (Console Output)</span>
+                    </div>
+                    <div class="card-header-actions">
+                        <span class="badge console-badge" id="console-count-badge">0 שורות</span>
+                        <button type="button" class="btn-icon-toggle" id="btn-toggle-console" title="מזער / הרחב">▾</button>
+                    </div>
+                </div>
+                <div class="console-body" id="console-output">
+                    <div class="console-empty">הפלט של Console.WriteLine יופיע כאן...</div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- פוטר -->
+    <footer class="app-footer">
+        מגמת מדעי המחשב | תיכון מקיף דוד טוביהו באר שבע &copy; 2026 — מיועד להוראה, תרגול והכנה לבגרות
+    </footer>
+
+    <!-- סקריפטים -->
+    <script src="js/csharp_queue_interpreter.js"></script>
+    <script src="js/autocomplete.js"></script>
+    <script src="js/visualizer.js"></script>
+
+</body>
+</html>
