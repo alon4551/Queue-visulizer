@@ -1008,11 +1008,34 @@ body {
 }
 
 .node-val {
-    font-size: 1.5rem;
+    font-size: 1.45rem;
     font-weight: 800;
-    line-height: 1;
+    line-height: 1.1;
     color: #ffffff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.node-val.val-char {
+    font-family: 'Consolas', monospace;
+    font-size: 1.55rem;
+    letter-spacing: 0.05em;
+    color: #fef08a;
+}
+
+.node-val.val-string {
+    font-family: 'Consolas', monospace;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 0.3rem;
+    color: #bae6fd;
+}
+
+.queue-node.node-string {
+    min-width: 86px;
+    padding: 0 0.65rem;
 }
 
 /* תגיות Head ו-Tail ברורות ומודגשות מעל ומתחת לאיבר */

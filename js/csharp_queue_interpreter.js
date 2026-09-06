@@ -108,7 +108,7 @@ class CSharpQueueInterpreter {
 
     tokenizeLine(line, lineNum) {
         const tokens = [];
-        const regex = /\s*(==|!=|<=|>=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=|=>|[(){}\[\],;+\-*\/%<>=!.]|"(?:\\.|[^"\\])*"|[a-zA-Z_]\w*(?:<[a-zA-Z0-9_, ]*>)?|-?\d+(?:\.\d+)?)\s*/g;
+        const regex = /\s*(==|!=|<=|>=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=|=>|[(){}\[\],;+\-*\/%<>=!.]|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])'|[a-zA-Z_]\w*(?:<[a-zA-Z0-9_, ]*>)?|-?\d+(?:\.\d+)?)\s*/g;
         let match;
         while ((match = regex.exec(line)) !== null) {
             const val = match[1];
@@ -211,7 +211,7 @@ class Parser {
     isFunctionStart() {
         let i = 0;
         let tok = this.peek(i);
-        while (['public', 'private', 'protected', 'static', 'void', 'int', 'bool', 'double', 'string', 'var'].includes(tok.value) ||
+        while (['public', 'private', 'protected', 'static', 'void', 'int', 'char', 'bool', 'double', 'string', 'var'].includes(tok.value) ||
                tok.value.startsWith('Queue<') || tok.value.startsWith('Queue')) {
             i++;
             tok = this.peek(i);
@@ -347,7 +347,7 @@ class Parser {
     }
 
     isType(val) {
-        return ['int', 'double', 'bool', 'string', 'void', 'var'].includes(val) || val.startsWith('Queue');
+        return ['int', 'char', 'double', 'bool', 'string', 'void', 'var'].includes(val) || val.startsWith('Queue');
     }
 
     expectIdentifier(desc = 'מזהה') {
@@ -545,7 +545,18 @@ class Parser {
         // מחרוזות
         if (tok.value.startsWith('"') && tok.value.endsWith('"')) {
             this.consume();
-            return { type: 'Literal', value: tok.value.slice(1, -1), raw: tok.value, line: tok.line };
+            return { type: 'Literal', value: tok.value.slice(1, -1), raw: tok.value, isString: true, line: tok.line };
+        }
+
+        // תווים (char)
+        if (tok.value.startsWith("'") && tok.value.endsWith("'") && tok.value.length >= 3) {
+            this.consume();
+            let charVal = tok.value.slice(1, -1);
+            if (charVal === '\\n') charVal = '\n';
+            else if (charVal === '\\t') charVal = '\t';
+            else if (charVal === '\\\\') charVal = '\\';
+            else if (charVal === "\\'") charVal = "'";
+            return { type: 'Literal', value: charVal, raw: tok.value, isChar: true, line: tok.line };
         }
 
         // בוליאני
@@ -571,9 +582,10 @@ class Parser {
  * מודל התור (Queue)
  */
 class QueueInstance {
-    constructor(name, initialItems = []) {
+    constructor(name, initialItems = [], itemType = 'int') {
         this.id = 'q_' + Math.random().toString(36).substring(2, 9);
         this.name = name;
+        this.itemType = itemType;
         this.items = [...initialItems]; // index 0 = Head, index length-1 = Tail
         this.lastOp = 'none';
         this.targetVal = null;
@@ -609,7 +621,7 @@ class QueueInstance {
     }
 
     clone(newName) {
-        const copy = new QueueInstance(newName || this.name, this.items);
+        const copy = new QueueInstance(newName || this.name, this.items, this.itemType);
         return copy;
     }
 
@@ -659,17 +671,21 @@ class RuntimeEnvironment {
         }
 
         const initialArgs = [];
+        this.initialQueueType = 'int';
 
         // בדיקה האם יש פרמטרים מסוג Queue<T> בארגומנטים של פונקציית הכניסה
         if (entryFunction) {
             for (const param of entryFunction.params) {
                 if (param.type.startsWith('Queue')) {
-                    const queueInst = new QueueInstance(param.name, this.initialValues);
+                    const match = param.type.match(/Queue<([^>]+)>/);
+                    const qType = match ? match[1].trim() : 'int';
+                    const queueInst = new QueueInstance(param.name, this.initialValues, qType);
                     this.queues.set(param.name, queueInst);
                     initialArgs.push(queueInst);
                     if (!this.hasInitialQueue) {
                         this.hasInitialQueue = true;
                         this.initialQueueName = param.name;
+                        this.initialQueueType = qType;
                         this.initialQueueSnapshot = [...this.initialValues];
                     }
                 } else {
@@ -725,6 +741,7 @@ class RuntimeEnvironment {
             error: null,
             hasInitialQueue: this.hasInitialQueue,
             initialQueueName: this.initialQueueName,
+            initialQueueType: this.initialQueueType || 'int',
             originalPreserved
         };
     }
@@ -788,10 +805,13 @@ class RuntimeEnvironment {
                 }
                 const isQueue = stmt.varType.startsWith('Queue') || (val instanceof QueueInstance);
                 if (isQueue) {
+                    const match = stmt.varType.match(/Queue<([^>]+)>/);
+                    const qType = match ? match[1].trim() : (val instanceof QueueInstance ? (val.itemType || 'int') : 'int');
                     if (!(val instanceof QueueInstance)) {
-                        val = new QueueInstance(stmt.varName, []);
+                        val = new QueueInstance(stmt.varName, [], qType);
                     } else {
                         val.name = stmt.varName;
+                        if (!val.itemType) val.itemType = qType;
                     }
                     this.queues.set(stmt.varName, val);
                     scope.set(stmt.varName, val);
@@ -938,7 +958,9 @@ class RuntimeEnvironment {
 
             case 'NewExpression': {
                 if (expr.className.startsWith('Queue')) {
-                    const newQ = new QueueInstance('temp_' + (this.queues.size + 1), []);
+                    const match = expr.className.match(/Queue<([^>]+)>/);
+                    const qType = match ? match[1].trim() : 'int';
+                    const newQ = new QueueInstance('temp_' + (this.queues.size + 1), [], qType);
                     return newQ;
                 }
                 return {};
@@ -1054,6 +1076,7 @@ class RuntimeEnvironment {
             queuesSnapshot.push({
                 name: qName,
                 id: qInst.id,
+                itemType: qInst.itemType || 'int',
                 items: [...qInst.items],
                 lastOp: (targetQueueName === qName) ? opType : 'none',
                 targetVal: (targetQueueName === qName) ? targetValue : null
@@ -1106,6 +1129,9 @@ class RuntimeEnvironment {
         }
         if (typeof val === 'boolean') {
             return val ? 'true' : 'false';
+        }
+        if (typeof val === 'string') {
+            return val;
         }
         if (val === null || val === undefined) {
             return 'null';

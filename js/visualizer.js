@@ -11,6 +11,7 @@ class QueueVisualizerApp {
         this.isPlaying = false;
         this.playTimer = null;
         this.speedMs = 800; // ברירת מחדל
+        this.initialQueueType = 'int'; // 'int', 'char', 'string'
         this.initialQueue = [14, 7, 25, 9, 31];
 
         this.dom = {};
@@ -102,15 +103,11 @@ class QueueVisualizerApp {
             }
         });
 
-        // הגרלת ערכים לתור
+        // הגרלת ערכים לתור בהתאם לטיפוס הפעיל
         this.dom.btnRandomQueue.addEventListener('click', () => {
-            const count = Math.floor(Math.random() * 4) + 4; // 4 to 7 items
-            const randItems = [];
-            for (let i = 0; i < count; i++) {
-                randItems.push(Math.floor(Math.random() * 90) + 10);
-            }
-            this.dom.initialQueueInput.value = randItems.join(', ');
+            const randItems = this.generateRandomQueue(this.initialQueueType);
             this.initialQueue = randItems;
+            this.dom.initialQueueInput.value = this.formatQueueInputValue(randItems, this.initialQueueType);
             this.recompile();
         });
 
@@ -349,14 +346,106 @@ class QueueVisualizerApp {
         setupMinimizeToggle(this.dom.btnToggleTabs, this.dom.inspectionCard);
     }
 
-    updateQueueFromInput() {
-        const raw = this.dom.initialQueueInput.value.trim();
-        const parts = raw.split(/[,\s]+/).filter(Boolean).map(Number);
-        if (parts.length > 0 && parts.every(n => !isNaN(n))) {
-            this.initialQueue = parts;
-            this.recompile();
+    parseQueueInput(raw, targetType = 'int') {
+        raw = (raw || '').trim();
+        if (!raw) return [];
+
+        const rawItems = raw.split(',').map(s => s.trim()).filter(Boolean);
+        if (rawItems.length === 0) return [];
+
+        if (targetType === 'int') {
+            const numbers = [];
+            for (let item of rawItems) {
+                const num = Number(item);
+                if (isNaN(num)) {
+                    throw new Error(`הערך '${item}' אינו מספר שלם חוקי. עבור Queue<int> אנא הזן מספרים שלמים (לדוגמה: 14, 7, 25, 9).`);
+                }
+                numbers.push(Math.trunc(num));
+            }
+            return numbers;
+        }
+
+        if (targetType === 'char') {
+            const chars = [];
+            for (let item of rawItems) {
+                let clean = item;
+                if ((clean.startsWith("'") && clean.endsWith("'")) || (clean.startsWith('"') && clean.endsWith('"'))) {
+                    clean = clean.slice(1, -1);
+                }
+                if (clean.length === 0) continue;
+                if (clean.length > 1) {
+                    throw new Error(`הערך '${item}' מכיל יותר מתו יחיד. עבור Queue<char> יש להזין תווים בודדים (לדוגמה: 'a', 'b', 'c' או a, b, c).`);
+                }
+                chars.push(clean);
+            }
+            return chars;
+        }
+
+        if (targetType === 'string') {
+            const strings = [];
+            for (let item of rawItems) {
+                let clean = item;
+                if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+                    clean = clean.slice(1, -1);
+                }
+                strings.push(clean);
+            }
+            return strings;
+        }
+
+        // ברירת מחדל
+        return rawItems;
+    }
+
+    generateRandomQueue(type = 'int') {
+        const count = Math.floor(Math.random() * 3) + 4; // 4 to 6 items
+        if (type === 'char') {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+            const chars = [];
+            for (let i = 0; i < count; i++) {
+                chars.push(letters[Math.floor(Math.random() * letters.length)]);
+            }
+            return chars;
+        } else if (type === 'string') {
+            const words = [
+                'apple', 'banana', 'orange', 'grape', 'lemon', 'melon', 'peach',
+                'David', 'Sarah', 'Noam', 'Tamar', 'Alon', 'Maya', 'Eitan',
+                'alpha', 'beta', 'gamma', 'delta', 'omega'
+            ];
+            const pool = [...words].sort(() => 0.5 - Math.random());
+            return pool.slice(0, count);
         } else {
-            alert('אנא הזן מספרים חוקיים מופרדים בפסיקים (למשל: 10, 20, 30)');
+            // int
+            const numbers = [];
+            for (let i = 0; i < count; i++) {
+                numbers.push(Math.floor(Math.random() * 90) + 10);
+            }
+            return numbers;
+        }
+    }
+
+    formatQueueInputValue(items, type = 'int') {
+        if (!items || items.length === 0) return '';
+        if (type === 'char') {
+            return items.map(c => `'${c}'`).join(', ');
+        }
+        if (type === 'string') {
+            return items.map(s => `"${s}"`).join(', ');
+        }
+        return items.join(', ');
+    }
+
+    updateQueueFromInput() {
+        try {
+            const parsed = this.parseQueueInput(this.dom.initialQueueInput.value, this.initialQueueType);
+            if (parsed.length > 0) {
+                this.initialQueue = parsed;
+                this.recompile();
+            } else {
+                alert('אנא הזן לפחות איבר אחד לתור ההתחלתי.');
+            }
+        } catch (err) {
+            alert(err.message);
         }
     }
 
@@ -390,17 +479,42 @@ class QueueVisualizerApp {
         if (result && result.hasInitialQueue) {
             this.dom.queueInitCard.classList.remove('inactive');
             const qName = result.initialQueueName || 'q';
+            const qType = result.initialQueueType || 'int';
+
+            // אם הטיפוס השתנה בקוד (למשל מ-int ל-char או string)
+            if (qType !== this.initialQueueType) {
+                this.initialQueueType = qType;
+                if (qType === 'char') {
+                    this.initialQueue = ['a', 'b', 'c', 'd', 'e'];
+                } else if (qType === 'string') {
+                    this.initialQueue = ['apple', 'banana', 'cherry', 'date'];
+                } else {
+                    this.initialQueue = [14, 7, 25, 9, 31];
+                }
+                if (this.dom.initialQueueInput) {
+                    this.dom.initialQueueInput.value = this.formatQueueInputValue(this.initialQueue, qType);
+                }
+            }
+
             if (this.dom.queueInitTitle) {
-                this.dom.queueInitTitle.innerHTML = `משתנה התור ההתחלתי: <code>Queue&lt;int&gt; ${qName}</code>`;
+                this.dom.queueInitTitle.innerHTML = `משתנה התור ההתחלתי: <code>Queue&lt;${qType}&gt; ${qName}</code>`;
             }
             if (this.dom.queueInitBadge) {
-                this.dom.queueInitBadge.textContent = `קלט פעיל ל-${qName}`;
+                this.dom.queueInitBadge.textContent = `קלט פעיל ל-${qName} (${qType})`;
                 this.dom.queueInitBadge.className = 'badge badge-active';
             }
             if (this.dom.queueInitHint) {
-                this.dom.queueInitHint.innerHTML = `ערכי התור ההתחלתי מועברים ישירות כפרמטר <code>${qName}</code> לפעולת הכניסה בעורך.`;
+                let typeHeb = 'מספרים שלמים int';
+                if (qType === 'char') typeHeb = "תווים יחידים char (למשל: 'a', 'b', 'c')";
+                else if (qType === 'string') typeHeb = 'מחרוזות string (למשל: "hello", "world")';
+                this.dom.queueInitHint.innerHTML = `ערכי התור ההתחלתי (${typeHeb}) מועברים ישירות כפרמטר <code>${qName}</code> לפעולת הכניסה בעורך.`;
             }
-            if (this.dom.initialQueueInput) this.dom.initialQueueInput.disabled = false;
+            if (this.dom.initialQueueInput) {
+                this.dom.initialQueueInput.disabled = false;
+                if (qType === 'char') this.dom.initialQueueInput.placeholder = "לדוגמה: 'a', 'b', 'c', 'd' או a, b, c, d";
+                else if (qType === 'string') this.dom.initialQueueInput.placeholder = 'לדוגמה: "Dana", "Alon", "Ron" או Dana, Alon, Ron';
+                else this.dom.initialQueueInput.placeholder = "לדוגמה: 14, 7, 25, 9, 31";
+            }
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = false;
             if (this.dom.btnRandomQueue) this.dom.btnRandomQueue.disabled = false;
         } else {
@@ -413,7 +527,7 @@ class QueueVisualizerApp {
                 this.dom.queueInitBadge.className = 'badge badge-inactive';
             }
             if (this.dom.queueInitHint) {
-                this.dom.queueInitHint.innerHTML = `💡 פעולת הכניסה אינה מקבלת פרמטר תור. תורים חדשים ייווצרו ויוצגו בחלון ההמחשה בעת שימוש ב-<code>new Queue&lt;int&gt;()</code> בקוד.`;
+                this.dom.queueInitHint.innerHTML = `💡 פעולת הכניסה אינה מקבלת פרמטר תור. תורים חדשים ייווצרו ויוצגו בחלון ההמחשה בעת שימוש ב-<code>new Queue&lt;T&gt;()</code> בקוד.`;
             }
             if (this.dom.initialQueueInput) this.dom.initialQueueInput.disabled = true;
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = true;
@@ -547,7 +661,7 @@ class QueueVisualizerApp {
                 <div class="queue-track-header">
                     <div class="queue-name-tag">
                         <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${queueBadgeColor}"></span>
-                        <span>Queue&lt;int&gt; <strong>${q.name}</strong></span>
+                        <span>Queue&lt;${q.itemType || 'int'}&gt; <strong>${q.name}</strong></span>
                     </div>
                     <div class="queue-length-badge">כמות איברים: <strong>${q.items.length}</strong></div>
                 </div>
@@ -609,9 +723,22 @@ class QueueVisualizerApp {
                         }
                     }
 
+                    let displayVal = itemVal;
+                    let valClass = 'node-val';
+                    if (typeof itemVal === 'string') {
+                        if (q.itemType === 'char') {
+                            displayVal = `'${itemVal}'`;
+                            valClass += ' val-char';
+                        } else {
+                            displayVal = `"${itemVal}"`;
+                            valClass += ' val-string';
+                            node.classList.add('node-string');
+                        }
+                    }
+
                     node.innerHTML = `
                         ${isTail ? '<span class="node-role-badge badge-tail">סוף (Tail)</span>' : ''}
-                        <span class="node-val">${itemVal}</span>
+                        <span class="${valClass}" title="${itemVal}">${displayVal}</span>
                         ${isHead ? '<span class="node-role-badge badge-head">ראש (Head)</span>' : ''}
                     `;
 
