@@ -27,10 +27,20 @@ class CSharpQueueInterpreter {
         try {
             const preprocessed = this.preprocess(sourceCode);
             const ast = this.parse(preprocessed.tokens, preprocessed.lineMap);
+            this.ast = ast;
+            this.classes = new Map();
+            if (ast.classes) {
+                for (const cls of ast.classes) {
+                    this.classes.set(cls.name, cls);
+                }
+            }
             runtime = new RuntimeEnvironment(ast, initialQueueValues, this.maxSteps);
             const trace = runtime.execute();
+            trace.classes = this.classes;
+            trace.ast = ast;
             return trace;
         } catch (err) {
+            if (!this.classes) this.classes = new Map();
             const errorLine = err.line || 1;
             const existingFrames = (runtime && runtime.frames && runtime.frames.length > 0) ? runtime.frames : [];
             const lastFrame = existingFrames.length > 0 ? existingFrames[existingFrames.length - 1] : null;
@@ -1023,7 +1033,7 @@ class RuntimeEnvironment {
                                 }
                             });
                         }
-                    } else if (this.classes.has(qType)) {
+                    } else if (this.classes.has(qType) || (!['int', 'char', 'string', 'bool', 'double', 'float', 'long'].includes(qType) && !qType.startsWith('Queue'))) {
                         const classDecl = this.classes.get(qType);
                         const fieldMeta = new Map();
                         const propMeta = new Map();
@@ -1042,12 +1052,47 @@ class RuntimeEnvironment {
                             this.initialValues.forEach(val => {
                                 if (val instanceof ClassInstance) {
                                     queueInst.insert(val);
-                                } else if (val && typeof val === 'object') {
-                                    const inst = new ClassInstance(qType, val, fieldMeta, propMeta);
+                                } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+                                    const rawFields = val.fields || val;
+                                    const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
                                     if (classDecl) {
+                                        for (const f of classDecl.fields) {
+                                            let defaultVal = 0;
+                                            if (f.type === 'string') defaultVal = '';
+                                            else if (f.type === 'bool') defaultVal = false;
+                                            else if (f.type === 'char') defaultVal = ' ';
+                                            inst.fields[f.name] = defaultVal;
+                                        }
                                         for (const m of classDecl.methods) {
                                             inst.methods.set(m.name, m);
                                         }
+                                    }
+                                    Object.assign(inst.fields, rawFields);
+                                    queueInst.insert(inst);
+                                } else if (Array.isArray(val)) {
+                                    const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
+                                    if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                                        classDecl.fields.forEach((f, fIdx) => {
+                                            inst.fields[f.name] = val[fIdx] !== undefined ? val[fIdx] : (f.type === 'string' ? '' : 0);
+                                        });
+                                        for (const m of classDecl.methods) {
+                                            inst.methods.set(m.name, m);
+                                        }
+                                    } else {
+                                        val.forEach((item, idx) => {
+                                            inst.fields[`val_${idx + 1}`] = item;
+                                        });
+                                    }
+                                    queueInst.insert(inst);
+                                } else if (val !== null && val !== undefined) {
+                                    const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
+                                    if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                                        inst.fields[classDecl.fields[0].name] = val;
+                                        for (const m of classDecl.methods) {
+                                            inst.methods.set(m.name, m);
+                                        }
+                                    } else {
+                                        inst.fields['value'] = val;
                                     }
                                     queueInst.insert(inst);
                                 }

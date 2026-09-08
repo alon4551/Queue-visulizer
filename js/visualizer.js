@@ -654,64 +654,172 @@ public class Program
         }
     }
 
+    isCustomClassType(type) {
+        if (!type) return false;
+        if (type === 'Point') return true;
+        if (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(type)) return true;
+        const primitives = ['int', 'char', 'string', 'bool', 'double', 'float', 'long', 'void'];
+        if (!primitives.includes(type) && !type.startsWith('Queue')) return true;
+        return false;
+    }
+
+    getClassDecl(type) {
+        if (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(type)) {
+            return this.interpreter.classes.get(type);
+        }
+        return null;
+    }
+
+    splitCommaSeparated(str) {
+        const parts = [];
+        let current = '';
+        let inQuotes = false;
+        let quoteChar = '';
+        for (let i = 0; i < str.length; i++) {
+            const ch = str[i];
+            if (!inQuotes && (ch === '"' || ch === "'")) {
+                inQuotes = true;
+                quoteChar = ch;
+                current += ch;
+            } else if (inQuotes && ch === quoteChar) {
+                inQuotes = false;
+                quoteChar = '';
+                current += ch;
+            } else if (!inQuotes && ch === ',') {
+                parts.push(current.trim());
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+        if (current.trim()) {
+            parts.push(current.trim());
+        }
+        return parts;
+    }
+
+    parseFieldValue(rawVal, type) {
+        let clean = (rawVal || '').trim();
+        if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+            clean = clean.slice(1, -1);
+        }
+        if (type === 'int' || type === 'double' || type === 'float' || type === 'long') {
+            const num = Number(clean);
+            return isNaN(num) ? 0 : num;
+        }
+        if (type === 'bool') {
+            return clean.toLowerCase() === 'true';
+        }
+        if (type === 'char') {
+            return clean.length > 0 ? clean[0] : ' ';
+        }
+        return clean;
+    }
+
+    parsePrimitiveValue(rawVal) {
+        let clean = (rawVal || '').trim();
+        if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+            return clean.slice(1, -1);
+        }
+        if (clean.toLowerCase() === 'true') return true;
+        if (clean.toLowerCase() === 'false') return false;
+        const num = Number(clean);
+        if (!isNaN(num) && clean !== '') return num;
+        return clean;
+    }
+
     parseQueueInput(raw, targetType = 'int') {
         raw = (raw || '').trim();
         if (!raw) return [];
 
-        if (targetType === 'Point' || (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(targetType))) {
-            const points = [];
-            // 1. זיהוי סוגריים עגולים: (10, 20) או (v1, v2)
-            const tupleRegex = /\(\s*([^)]+)\s*\)/g;
-            let tm;
-            while ((tm = tupleRegex.exec(raw)) !== null) {
-                const parts = tm[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-                if (targetType === 'Point') {
-                    if (parts.length >= 2) {
-                        points.push({ x: Number(parts[0]) || 0, y: Number(parts[1]) || 0 });
-                    }
-                } else if (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(targetType)) {
-                    const cls = this.interpreter.classes.get(targetType);
-                    const obj = {};
-                    cls.fields.forEach((f, idx) => {
-                        const rawVal = parts[idx];
-                        obj[f.name] = (f.type === 'int' || f.type === 'double') ? Number(rawVal) : rawVal;
-                    });
-                    points.push(obj);
-                }
+        if (this.isCustomClassType(targetType)) {
+            const items = [];
+            const classDecl = this.getClassDecl(targetType);
+            let declaredFields = [];
+            if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                declaredFields = classDecl.fields;
+            } else if (targetType === 'Point') {
+                declaredFields = [{ name: 'x', type: 'int' }, { name: 'y', type: 'int' }];
             }
 
-            // 2. זיהוי סוגריים מסולסלים: {x: 10, y: 20} או {10, 20}
-            if (points.length === 0) {
+            // 1. זיהוי סוגריים עגולים: (10, 20) או ("Dana", 95)
+            const tupleRegex = /\(([^)]+)\)/g;
+            let tm;
+            while ((tm = tupleRegex.exec(raw)) !== null) {
+                const parts = this.splitCommaSeparated(tm[1]);
+                const obj = {};
+                if (declaredFields.length > 0) {
+                    declaredFields.forEach((f, idx) => {
+                        if (idx < parts.length) {
+                            obj[f.name] = this.parseFieldValue(parts[idx], f.type);
+                        } else {
+                            obj[f.name] = f.type === 'string' ? '' : (f.type === 'bool' ? false : 0);
+                        }
+                    });
+                } else if (targetType === 'Point' && parts.length >= 2) {
+                    obj.x = Number(parts[0]) || 0;
+                    obj.y = Number(parts[1]) || 0;
+                } else {
+                    parts.forEach((p, idx) => {
+                        obj[`field_${idx + 1}`] = this.parsePrimitiveValue(p);
+                    });
+                }
+                items.push(obj);
+            }
+
+            // 2. זיהוי סוגריים מסולסלים: {x: 10, y: 20} או {name: "Dana", grade: 95}
+            if (items.length === 0) {
                 const objRegex = /\{([^}]+)\}/g;
                 let om;
                 while ((om = objRegex.exec(raw)) !== null) {
                     const content = om[1].trim();
                     const obj = {};
                     if (content.includes(':')) {
-                        const pairs = content.split(',').map(s => s.trim());
+                        const pairs = this.splitCommaSeparated(content);
                         pairs.forEach(p => {
-                            const [k, v] = p.split(':').map(s => s.trim().replace(/^["']|["']$/g, ''));
-                            if (k && v !== undefined) {
-                                obj[k] = isNaN(Number(v)) ? v : Number(v);
+                            const colonIdx = p.indexOf(':');
+                            if (colonIdx !== -1) {
+                                const k = p.substring(0, colonIdx).trim().replace(/^["']|["']$/g, '');
+                                const vStr = p.substring(colonIdx + 1).trim();
+                                if (k) {
+                                    obj[k] = this.parsePrimitiveValue(vStr);
+                                }
                             }
                         });
                     } else {
-                        const parts = content.split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
-                        if (targetType === 'Point' && parts.length >= 2) {
+                        const parts = this.splitCommaSeparated(content);
+                        if (declaredFields.length > 0) {
+                            declaredFields.forEach((f, idx) => {
+                                if (idx < parts.length) {
+                                    obj[f.name] = this.parseFieldValue(parts[idx], f.type);
+                                }
+                            });
+                        } else if (targetType === 'Point' && parts.length >= 2) {
                             obj.x = Number(parts[0]) || 0;
                             obj.y = Number(parts[1]) || 0;
+                        } else {
+                            parts.forEach((p, idx) => {
+                                obj[`field_${idx + 1}`] = this.parsePrimitiveValue(p);
+                            });
                         }
                     }
                     if (Object.keys(obj).length > 0) {
-                        points.push(obj);
+                        items.push(obj);
                     }
                 }
             }
 
-            if (points.length === 0) {
-                throw new Error(`עבור מחלקה מותאמת אישית Queue<${targetType}> יש להזין איברים בסוגריים עגולים, לדוגמה: (10, 20), (30, 40), (50, 60) או בסוגריים מסולסלים: {x: 10, y: 20}`);
+            if (items.length === 0) {
+                let sampleStr = '';
+                if (declaredFields.length > 0) {
+                    const ex = declaredFields.map(f => f.type === 'string' ? '"ערך"' : (f.type === 'bool' ? 'true' : '10')).join(', ');
+                    sampleStr = ` (${ex})`;
+                } else {
+                    sampleStr = ' (ערך1, ערך2)';
+                }
+                throw new Error(`עבור מחלקה מותאמת אישית Queue<${targetType}> יש להזין איברים בסוגריים עגולים, לדוגמה:${sampleStr} או בסוגריים מסולסלים.`);
             }
-            return points;
+            return items;
         }
 
         if (targetType.startsWith('Queue')) {
@@ -779,15 +887,46 @@ public class Program
 
     generateRandomQueue(type = 'int') {
         const count = Math.floor(Math.random() * 3) + 3; // 3 to 5 items
-        if (type === 'Point') {
-            const points = [];
-            for (let i = 0; i < 3; i++) {
-                points.push({
-                    x: Math.floor(Math.random() * 20) + 1,
-                    y: Math.floor(Math.random() * 20) + 1
-                });
+        if (this.isCustomClassType(type)) {
+            const classDecl = this.getClassDecl(type);
+            let fields = [];
+            if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                fields = classDecl.fields;
+            } else if (type === 'Point') {
+                fields = [{ name: 'x', type: 'int' }, { name: 'y', type: 'int' }];
+            } else {
+                fields = [{ name: 'val1', type: 'int' }, { name: 'val2', type: 'int' }];
             }
-            return points;
+
+            const names = ['Dana', 'Noam', 'Tamar', 'Alon', 'Maya', 'Eitan', 'Yoni', 'Shira', 'Lior', 'Adi'];
+            const items = [];
+            for (let i = 0; i < 3; i++) {
+                const obj = {};
+                fields.forEach(f => {
+                    const fNameLower = (f.name || '').toLowerCase();
+                    if (f.type === 'string') {
+                        obj[f.name] = names[(i + Math.floor(Math.random() * names.length)) % names.length];
+                    } else if (f.type === 'char') {
+                        const letters = 'ABCDEFGH';
+                        obj[f.name] = letters[Math.floor(Math.random() * letters.length)];
+                    } else if (f.type === 'bool') {
+                        obj[f.name] = (i % 2 === 0);
+                    } else {
+                        // int / double
+                        if (fNameLower.includes('grade') || fNameLower.includes('score')) {
+                            obj[f.name] = Math.floor(Math.random() * 16) + 85; // 85-100
+                        } else if (fNameLower.includes('age')) {
+                            obj[f.name] = Math.floor(Math.random() * 5) + 14; // 14-18
+                        } else if (type === 'Point' || fNameLower === 'x' || fNameLower === 'y') {
+                            obj[f.name] = Math.floor(Math.random() * 20) + 1;
+                        } else {
+                            obj[f.name] = Math.floor(Math.random() * 30) + 10;
+                        }
+                    }
+                });
+                items.push(obj);
+            }
+            return items;
         } else if (type.startsWith('Queue')) {
             const subTypeMatch = type.match(/^Queue<(.+)>$/);
             const subType = subTypeMatch ? subTypeMatch[1].trim() : 'int';
@@ -823,10 +962,19 @@ public class Program
 
     formatQueueInputValue(items, type = 'int') {
         if (!items || items.length === 0) return '';
-        if (type === 'Point' || (items[0] && typeof items[0] === 'object' && !Array.isArray(items[0]) && !(items[0] instanceof QueueInstance))) {
+        if (this.isCustomClassType(type) || (items[0] && typeof items[0] === 'object' && !Array.isArray(items[0]) && !(items[0] instanceof QueueInstance))) {
             return items.map(p => {
-                if (p.x !== undefined && p.y !== undefined) return `(${p.x}, ${p.y})`;
-                const vals = Object.values(p.fields || p);
+                if (p && p.x !== undefined && p.y !== undefined && Object.keys(p).length === 2) {
+                    return `(${p.x}, ${p.y})`;
+                }
+                const rawFields = (p && typeof p === 'object' && p.fields) ? p.fields : p;
+                const vals = Object.values(rawFields).map(val => {
+                    if (typeof val === 'string') return `"${val}"`;
+                    if (typeof val === 'object' && val !== null) {
+                        return JSON.stringify(val);
+                    }
+                    return String(val);
+                });
                 return `(${vals.join(', ')})`;
             }).join(', ');
         }
@@ -850,10 +998,15 @@ public class Program
         let sampleVal = '';
         let targetCodePreset = null;
 
-        if (sampleType === 'Point') {
-            sampleVal = '(10, 20), (30, 40), (50, 60)';
-            if (this.initialQueueType !== 'Point') {
-                targetCodePreset = 'class-point';
+        if (sampleType === 'Point' || this.isCustomClassType(sampleType)) {
+            if (this.isCustomClassType(this.initialQueueType) && this.initialQueueType !== 'Point') {
+                const sampleItems = this.generateRandomQueue(this.initialQueueType);
+                sampleVal = this.formatQueueInputValue(sampleItems, this.initialQueueType);
+            } else {
+                sampleVal = '(10, 20), (30, 40), (50, 60)';
+                if (this.initialQueueType !== 'Point') {
+                    targetCodePreset = 'class-point';
+                }
             }
         } else if (sampleType.startsWith('Queue')) {
             sampleVal = '[10, 20], [30, 40], [50, 60]';
@@ -925,19 +1078,26 @@ public class Program
     recompile() {
         this.pause();
         const code = this.dom.codeTextarea.value;
-        const result = this.interpreter.run(code, this.initialQueue);
+        let result = this.interpreter.run(code, this.initialQueue);
+
+        // עדכון כרטיס התור ההתחלתי בהתאם לזיהוי פרמטר Queue בארגומנטים
+        const typeChanged = this.updateQueueInitUI(result);
+
+        // אם הטיפוס השתנה (למשל המשתמש שינה את קוד ה-Main לקבל Queue<Student>),
+        // updateQueueInitUI מעדכן את this.initialQueue לסוג החדש.
+        // לכן אנו מריצים מחדש את האינטרפרטר עם התור המעודכן!
+        if (typeChanged) {
+            result = this.interpreter.run(code, this.initialQueue);
+        }
 
         this.frames = result.frames;
         this.currentFrameIdx = 0;
-
-        // עדכון כרטיס התור ההתחלתי בהתאם לזיהוי פרמטר Queue בארגומנטים
-        this.updateQueueInitUI(result);
 
         this.renderCurrentFrame();
     }
 
     updateQueueInitUI(result) {
-        if (!this.dom.queueInitCard) return;
+        if (!this.dom.queueInitCard) return false;
 
         // עדכון הדגשת כרטיסיות המדריך הפדגוגי לפי הטיפוס המזוהה
         const guideCards = document.querySelectorAll('.format-card');
@@ -947,6 +1107,8 @@ public class Program
             if (activeIndicator) activeIndicator.remove();
         });
 
+        let typeChanged = false;
+
         if (result && result.hasInitialQueue) {
             this.dom.queueInitCard.classList.remove('inactive');
             const qName = result.initialQueueName || 'q';
@@ -954,8 +1116,12 @@ public class Program
 
             // עדכון הכרטיסייה הפעילה במדריך הפורמט
             let targetCardId = 'format-card-int';
-            if (qType === 'Point' || (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(qType))) {
+            if (this.isCustomClassType(qType)) {
                 targetCardId = 'format-card-point';
+                const pointCardTag = document.querySelector('#format-card-point .format-tag');
+                if (pointCardTag) {
+                    pointCardTag.textContent = `Queue<${qType}>`;
+                }
             } else if (qType.startsWith('Queue')) {
                 targetCardId = 'format-card-queue-of-queues';
             } else if (qType === 'char' || qType === 'string') {
@@ -974,20 +1140,11 @@ public class Program
                 }
             }
 
-            // אם הטיפוס השתנה בקוד (למשל מ-int ל-char, string, Point או Queue<T>)
+            // אם הטיפוס השתנה בקוד (למשל מ-int ל-char, string, Student, Point או Queue<T>)
             if (qType !== this.initialQueueType) {
                 this.initialQueueType = qType;
-                if (qType === 'char') {
-                    this.initialQueue = ['a', 'b', 'c', 'd', 'e'];
-                } else if (qType === 'string') {
-                    this.initialQueue = ['apple', 'banana', 'cherry', 'date'];
-                } else if (qType === 'Point') {
-                    this.initialQueue = [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }];
-                } else if (qType.startsWith('Queue')) {
-                    this.initialQueue = [[10, 20], [30, 40], [50, 60]];
-                } else {
-                    this.initialQueue = [14, 7, 25, 9, 31];
-                }
+                typeChanged = true;
+                this.initialQueue = this.generateRandomQueue(qType);
                 if (this.dom.initialQueueInput) {
                     this.dom.initialQueueInput.value = this.formatQueueInputValue(this.initialQueue, qType);
                 }
@@ -1005,6 +1162,7 @@ public class Program
                 if (qType === 'char') typeHeb = "תווים יחידים char (למשל: 'a', 'b', 'c')";
                 else if (qType === 'string') typeHeb = 'מחרוזות string (למשל: "hello", "world")';
                 else if (qType === 'Point') typeHeb = 'נקודות Point (למשל: (10, 20), (30, 40))';
+                else if (this.isCustomClassType(qType)) typeHeb = `אובייקטים מסוג ${qType} (למשל: בסוגריים עגולים עם שדות המחלקה)`;
                 else if (qType.startsWith('Queue')) typeHeb = 'תור מקונן של תורים (למשל: [10, 20], [30, 40])';
                 this.dom.queueInitHint.innerHTML = `ערכי התור ההתחלתי (${typeHeb}) מועברים ישירות כפרמטר <code>${qName}</code> לפעולת הכניסה בעורך.`;
             }
@@ -1013,7 +1171,10 @@ public class Program
                 if (qType === 'char') this.dom.initialQueueInput.placeholder = "לדוגמה: 'a', 'b', 'c', 'd' או a, b, c, d";
                 else if (qType === 'string') this.dom.initialQueueInput.placeholder = 'לדוגמה: "Dana", "Alon", "Ron" או Dana, Alon, Ron';
                 else if (qType === 'Point') this.dom.initialQueueInput.placeholder = 'לדוגמה: (10, 20), (30, 40), (50, 60)';
-                else if (qType.startsWith('Queue')) this.dom.initialQueueInput.placeholder = 'לדוגמה: [10, 20], [30, 40], [50, 60]';
+                else if (this.isCustomClassType(qType)) {
+                    const sampleFormat = this.formatQueueInputValue(this.initialQueue, qType);
+                    this.dom.initialQueueInput.placeholder = `לדוגמה: ${sampleFormat || '(...) , (...)'}`;
+                } else if (qType.startsWith('Queue')) this.dom.initialQueueInput.placeholder = 'לדוגמה: [10, 20], [30, 40], [50, 60]';
                 else this.dom.initialQueueInput.placeholder = "לדוגמה: 14, 7, 25, 9, 31";
             }
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = false;
@@ -1034,6 +1195,8 @@ public class Program
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = true;
             if (this.dom.btnRandomQueue) this.dom.btnRandomQueue.disabled = true;
         }
+
+        return typeChanged;
     }
 
     renderCurrentFrame() {
