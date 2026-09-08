@@ -1024,13 +1024,31 @@ class RuntimeEnvironment {
                             });
                         }
                     } else if (this.classes.has(qType)) {
+                        const classDecl = this.classes.get(qType);
+                        const fieldMeta = new Map();
+                        const propMeta = new Map();
+                        if (classDecl) {
+                            for (const f of classDecl.fields) {
+                                fieldMeta.set(f.name, { access: f.access || 'private', type: f.type });
+                            }
+                            if (classDecl.properties) {
+                                for (const p of classDecl.properties) {
+                                    propMeta.set(p.name, p);
+                                }
+                            }
+                        }
                         queueInst = new QueueInstance(param.name, [], qType);
                         if (Array.isArray(this.initialValues)) {
                             this.initialValues.forEach(val => {
                                 if (val instanceof ClassInstance) {
                                     queueInst.insert(val);
                                 } else if (val && typeof val === 'object') {
-                                    const inst = new ClassInstance(qType, val);
+                                    const inst = new ClassInstance(qType, val, fieldMeta, propMeta);
+                                    if (classDecl) {
+                                        for (const m of classDecl.methods) {
+                                            inst.methods.set(m.name, m);
+                                        }
+                                    }
                                     queueInst.insert(inst);
                                 }
                             });
@@ -1100,7 +1118,8 @@ class RuntimeEnvironment {
             hasInitialQueue: this.hasInitialQueue,
             initialQueueName: this.initialQueueName,
             initialQueueType: this.initialQueueType || 'int',
-            originalPreserved
+            originalPreserved,
+            consoleOutputs: this.consoleOutputs
         };
     }
 

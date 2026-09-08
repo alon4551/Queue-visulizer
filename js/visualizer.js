@@ -658,15 +658,58 @@ public class Program
         raw = (raw || '').trim();
         if (!raw) return [];
 
-        if (targetType === 'Point') {
+        if (targetType === 'Point' || (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(targetType))) {
             const points = [];
-            const regex = /\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/g;
-            let m;
-            while ((m = regex.exec(raw)) !== null) {
-                points.push({ x: Number(m[1]), y: Number(m[2]) });
+            // 1. זיהוי סוגריים עגולים: (10, 20) או (v1, v2)
+            const tupleRegex = /\(\s*([^)]+)\s*\)/g;
+            let tm;
+            while ((tm = tupleRegex.exec(raw)) !== null) {
+                const parts = tm[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+                if (targetType === 'Point') {
+                    if (parts.length >= 2) {
+                        points.push({ x: Number(parts[0]) || 0, y: Number(parts[1]) || 0 });
+                    }
+                } else if (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(targetType)) {
+                    const cls = this.interpreter.classes.get(targetType);
+                    const obj = {};
+                    cls.fields.forEach((f, idx) => {
+                        const rawVal = parts[idx];
+                        obj[f.name] = (f.type === 'int' || f.type === 'double') ? Number(rawVal) : rawVal;
+                    });
+                    points.push(obj);
+                }
             }
+
+            // 2. זיהוי סוגריים מסולסלים: {x: 10, y: 20} או {10, 20}
             if (points.length === 0) {
-                throw new Error("עבור Queue<Point> יש להזין נקודות בסוגריים, לדוגמה: (10, 20), (30, 40), (50, 60)");
+                const objRegex = /\{([^}]+)\}/g;
+                let om;
+                while ((om = objRegex.exec(raw)) !== null) {
+                    const content = om[1].trim();
+                    const obj = {};
+                    if (content.includes(':')) {
+                        const pairs = content.split(',').map(s => s.trim());
+                        pairs.forEach(p => {
+                            const [k, v] = p.split(':').map(s => s.trim().replace(/^["']|["']$/g, ''));
+                            if (k && v !== undefined) {
+                                obj[k] = isNaN(Number(v)) ? v : Number(v);
+                            }
+                        });
+                    } else {
+                        const parts = content.split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
+                        if (targetType === 'Point' && parts.length >= 2) {
+                            obj.x = Number(parts[0]) || 0;
+                            obj.y = Number(parts[1]) || 0;
+                        }
+                    }
+                    if (Object.keys(obj).length > 0) {
+                        points.push(obj);
+                    }
+                }
+            }
+
+            if (points.length === 0) {
+                throw new Error(`עבור מחלקה מותאמת אישית Queue<${targetType}> יש להזין איברים בסוגריים עגולים, לדוגמה: (10, 20), (30, 40), (50, 60) או בסוגריים מסולסלים: {x: 10, y: 20}`);
             }
             return points;
         }
@@ -682,7 +725,7 @@ public class Program
                 subQueues.push(innerParsed);
             }
             if (subQueues.length === 0) {
-                throw new Error("עבור תור של תורים Queue<Queue<...>> יש להזין תורים פנימיים בסוגריים מרובעים, לדוגמה: [10, 20], [30, 40]");
+                throw new Error("עבור תור של תורים Queue<Queue<...>> יש להזין תורים פנימיים בסוגריים מרובעים, לדוגמה: [10, 20], [30, 40], [50, 60]");
             }
             return subQueues;
         }
@@ -780,13 +823,17 @@ public class Program
 
     formatQueueInputValue(items, type = 'int') {
         if (!items || items.length === 0) return '';
-        if (type === 'Point') {
-            return items.map(p => `(${p.x}, ${p.y})`).join(', ');
+        if (type === 'Point' || (items[0] && typeof items[0] === 'object' && !Array.isArray(items[0]) && !(items[0] instanceof QueueInstance))) {
+            return items.map(p => {
+                if (p.x !== undefined && p.y !== undefined) return `(${p.x}, ${p.y})`;
+                const vals = Object.values(p.fields || p);
+                return `(${vals.join(', ')})`;
+            }).join(', ');
         }
         if (type.startsWith('Queue')) {
             const subTypeMatch = type.match(/^Queue<(.+)>$/);
             const subType = subTypeMatch ? subTypeMatch[1].trim() : 'int';
-            return items.map(subArr => `[${this.formatQueueInputValue(subArr, subType)}]`).join(', ');
+            return items.map(subArr => `[${this.formatQueueInputValue(Array.isArray(subArr) ? subArr : (subArr.items || []), subType)}]`).join(', ');
         }
         if (type === 'char') {
             return items.map(c => `'${c}'`).join(', ');
@@ -797,6 +844,51 @@ public class Program
         return items.join(', ');
     }
 
+    applyQueueFormatSample(sampleType) {
+        if (!this.dom.initialQueueInput) return;
+
+        let sampleVal = '';
+        let targetCodePreset = null;
+
+        if (sampleType === 'Point') {
+            sampleVal = '(10, 20), (30, 40), (50, 60)';
+            if (this.initialQueueType !== 'Point') {
+                targetCodePreset = 'class-point';
+            }
+        } else if (sampleType.startsWith('Queue')) {
+            sampleVal = '[10, 20], [30, 40], [50, 60]';
+            if (!this.initialQueueType.startsWith('Queue')) {
+                targetCodePreset = 'queue-of-queues';
+            }
+        } else if (sampleType === 'char') {
+            sampleVal = "'a', 'b', 'c', 'd'";
+            if (this.initialQueueType !== 'char') {
+                targetCodePreset = 'chars';
+            }
+        } else if (sampleType === 'string') {
+            sampleVal = '"apple", "banana", "cherry", "date"';
+            if (this.initialQueueType !== 'string') {
+                targetCodePreset = 'strings';
+            }
+        } else {
+            // int
+            sampleVal = '14, 7, 25, 9, 31';
+            if (this.initialQueueType !== 'int') {
+                targetCodePreset = 'basic';
+            }
+        }
+
+        // אם המשתמש בחר טיפוס שונה מהקוד הנוכחי, נטען את דוגמת הקוד התואמת
+        const selectEl = this.dom.exampleCodeSelect || this.dom.exampleSelect;
+        if (targetCodePreset && selectEl) {
+            selectEl.value = targetCodePreset;
+            selectEl.dispatchEvent(new Event('change'));
+        }
+
+        this.dom.initialQueueInput.value = sampleVal;
+        this.updateQueueFromInput();
+    }
+
     updateQueueFromInput() {
         try {
             const parsed = this.parseQueueInput(this.dom.initialQueueInput.value, this.initialQueueType);
@@ -804,10 +896,19 @@ public class Program
                 this.initialQueue = parsed;
                 this.recompile();
             } else {
-                alert('אנא הזן לפחות איבר אחד לתור ההתחלתי.');
+                this.showInputError('אנא הזן לפחות איבר אחד לתור ההתחלתי.');
             }
         } catch (err) {
-            alert(err.message);
+            this.showInputError(err.message);
+        }
+    }
+
+    showInputError(msg) {
+        if (this.dom.queueInitHint) {
+            this.dom.queueInitHint.innerHTML = `<span style="color:#ef4444; font-weight:700;">⚠️ שגיאת תחביר בקלט:</span> ${msg}`;
+        }
+        if (typeof alert === 'function' && !window._suppressAlerts) {
+            alert(msg);
         }
     }
 
@@ -838,10 +939,40 @@ public class Program
     updateQueueInitUI(result) {
         if (!this.dom.queueInitCard) return;
 
+        // עדכון הדגשת כרטיסיות המדריך הפדגוגי לפי הטיפוס המזוהה
+        const guideCards = document.querySelectorAll('.format-card');
+        guideCards.forEach(card => {
+            card.classList.remove('active-type');
+            const activeIndicator = card.querySelector('.format-active-indicator');
+            if (activeIndicator) activeIndicator.remove();
+        });
+
         if (result && result.hasInitialQueue) {
             this.dom.queueInitCard.classList.remove('inactive');
             const qName = result.initialQueueName || 'q';
             const qType = result.initialQueueType || 'int';
+
+            // עדכון הכרטיסייה הפעילה במדריך הפורמט
+            let targetCardId = 'format-card-int';
+            if (qType === 'Point' || (this.interpreter && this.interpreter.classes && this.interpreter.classes.has(qType))) {
+                targetCardId = 'format-card-point';
+            } else if (qType.startsWith('Queue')) {
+                targetCardId = 'format-card-queue-of-queues';
+            } else if (qType === 'char' || qType === 'string') {
+                targetCardId = 'format-card-char-string';
+            }
+
+            const activeCard = document.getElementById(targetCardId);
+            if (activeCard) {
+                activeCard.classList.add('active-type');
+                const ind = document.createElement('span');
+                ind.className = 'format-active-indicator';
+                ind.innerHTML = '⚡ הטיפוס הנוכחי בקוד';
+                const header = activeCard.querySelector('.format-card-header');
+                if (header) {
+                    header.appendChild(ind);
+                }
+            }
 
             // אם הטיפוס השתנה בקוד (למשל מ-int ל-char, string, Point או Queue<T>)
             if (qType !== this.initialQueueType) {

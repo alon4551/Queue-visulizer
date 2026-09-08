@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מאייר ומפרש תור ב-C# | תיכון מקיף דוד טוביהו</title>
-    <link rel="stylesheet" href="css/style.css?v=2.3">
+    <link rel="stylesheet" href="css/style.css?v=2.4">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
     <script>
         // בקר מעבר כרטיסיות גלובלי מיידי
@@ -46,8 +46,16 @@
                 window.app.switchInspectionTab(tabName);
             }
         }
+
+        function applyQueueFormatSample(type) {
+            if (window.app && typeof window.app.applyQueueFormatSample === 'function') {
+                window.app.applyQueueFormatSample(type);
+            }
+        }
+
         window.switchQueueTab = switchQueueTab;
         window.switchInspectionTab = switchInspectionTab;
+        window.applyQueueFormatSample = applyQueueFormatSample;
     </script>
 </head>
 <body>
@@ -113,6 +121,85 @@
                                     <button id="btn-random-queue" class="btn btn-secondary">🎲 הגרל ערכים</button>
                                 </div>
                                 <p class="queue-init-hint" id="queue-init-hint">ערכי התור ההתחלתי מועברים ישירות לפעולה <code>Program.Main(Queue&lt;int&gt; q)</code> בעורך.</p>
+
+                                <!-- מדריך תחביר והזנה חזותי לכל סוגי התורים -->
+                                <div class="queue-format-guide" id="queue-format-guide">
+                                    <div class="guide-header">
+                                        <div class="guide-title">
+                                            <span class="guide-icon">💡</span>
+                                            <span>מדריך תחביר והזנת קלט (Syntax Guide)</span>
+                                        </div>
+                                        <span class="guide-subtitle">לחץ על כרטיסייה להדבקה מהירה של קלט לדוגמה</span>
+                                    </div>
+
+                                    <div class="guide-cards-grid">
+                                        <!-- כרטיס 1: מחלקה מותאמת אישית (Custom Class) -->
+                                        <div class="format-card" id="format-card-point" data-type="Point" onclick="applyQueueFormatSample('Point')">
+                                            <div class="format-card-header">
+                                                <span class="format-badge format-badge-class">מחלקה מותאמת</span>
+                                                <span class="format-type-tag">Queue&lt;Point&gt;</span>
+                                            </div>
+                                            <div class="format-card-syntax" dir="ltr">(x, y), (x, y)</div>
+                                            <p class="format-card-desc">הזנת אובייקטים כזוגות/שדות בסוגריים עגולים או בסוגריים מסולסלים <code>{x, y}</code>.</p>
+                                            <div class="format-card-example" dir="ltr">(10, 20), (30, 40), (50, 60)</div>
+                                            <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
+                                        </div>
+
+                                        <!-- כרטיס 2: תור של תורים (Queue of Queues) -->
+                                        <div class="format-card" id="format-card-queue-of-queues" data-type="Queue<int>" onclick="applyQueueFormatSample('Queue<int>')">
+                                            <div class="format-card-header">
+                                                <span class="format-badge format-badge-nested">תור של תורים</span>
+                                                <span class="format-type-tag">Queue&lt;Queue&lt;int&gt;&gt;</span>
+                                            </div>
+                                            <div class="format-card-syntax" dir="ltr">[elem1, elem2], [elem3, elem4]</div>
+                                            <p class="format-card-desc">כל איבר בתור הראשי הוא בעצמו תור פנימי שלם המוגדר בסוגריים מרובעים <code>[...]</code>.</p>
+                                            <div class="format-card-example" dir="ltr">[10, 20], [30, 40], [50, 60]</div>
+                                            <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
+                                        </div>
+
+                                        <!-- כרטיס 3: מספרים שלמים (int) -->
+                                        <div class="format-card active-type" id="format-card-int" data-type="int" onclick="applyQueueFormatSample('int')">
+                                            <div class="format-card-header">
+                                                <span class="format-badge format-badge-primitive">מספרים</span>
+                                                <span class="format-type-tag">Queue&lt;int&gt;</span>
+                                            </div>
+                                            <div class="format-card-syntax" dir="ltr">num1, num2, num3</div>
+                                            <p class="format-card-desc">מספרים שלמים מופרדים בפסיקים (חיוביים או שליליים).</p>
+                                            <div class="format-card-example" dir="ltr">14, 7, 25, 9, 31</div>
+                                            <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
+                                        </div>
+
+                                        <!-- כרטיס 4: תווים ומחרוזות (char / string) -->
+                                        <div class="format-card" id="format-card-char-string" data-type="char" onclick="applyQueueFormatSample('char')">
+                                            <div class="format-card-header">
+                                                <span class="format-badge format-badge-text">תווים ומחרוזות</span>
+                                                <span class="format-type-tag">char / string</span>
+                                            </div>
+                                            <div class="format-card-syntax" dir="ltr">'a', 'b' או "word1", "word2"</div>
+                                            <p class="format-card-desc">תווים יחידים בגרש <code>'c'</code> או מילים במירכאות <code>"text"</code>.</p>
+                                            <div class="format-card-example" dir="ltr">'a', 'b', 'c', 'd'</div>
+                                            <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- פירוט פדגוגי והסבר מעמיק -->
+                                    <div class="guide-details-box">
+                                        <div class="guide-detail-item">
+                                            <strong>📦 כיצד פועל אתחול מחלקה מותאמת אישית (כגון <code>Point</code>)?</strong>
+                                            <p>
+                                                כאשר חתימת הפעולה בעורך מקבלת <code>Queue&lt;Point&gt; q</code>, המאייר מייצר עבור כל זוג <code>(x, y)</code> אובייקט חדש של המחלקה עם השדות והפעולות המתאימים.
+                                                כל איבר מוצג בתור ככרטיסיית אובייקט חזותית המציגה את שדותיו (<code>x</code>, <code>y</code>) ורמת הכימוס (<code>private</code>/<code>public</code>).
+                                            </p>
+                                        </div>
+                                        <div class="guide-detail-item">
+                                            <strong>🔄 כיצד פועל אתחול תור של תורים (<code>Queue&lt;Queue&lt;T&gt;&gt;</code>)?</strong>
+                                            <p>
+                                                כאשר חתימת הפעולה מקבלת <code>Queue&lt;Queue&lt;int&gt;&gt; q</code>, כל זוג סוגריים מרובעים <code>[...]</code> מוגדר כתור עצמאי.
+                                                בחלונית התור יוצג מסלול ראשי ובו כל איבר הוא תור פנימי עם ראש (Head) וסוף (Tail), עליו ניתן להפעיל <code>Remove()</code>, <code>Insert()</code> ו-<code>Head()</code>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -256,9 +343,9 @@
     </footer>
 
     <!-- סקריפטים -->
-    <script src="js/csharp_queue_interpreter.js?v=2.3"></script>
-    <script src="js/autocomplete.js?v=2.3"></script>
-    <script src="js/visualizer.js?v=2.3"></script>
+    <script src="js/csharp_queue_interpreter.js?v=2.4"></script>
+    <script src="js/autocomplete.js?v=2.4"></script>
+    <script src="js/visualizer.js?v=2.4"></script>
 
 </body>
 </html>

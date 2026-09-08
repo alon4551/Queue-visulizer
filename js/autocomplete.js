@@ -263,7 +263,7 @@ class AutocompleteEngine {
                 signature: 'public class Point',
                 params: 'שדות private, בנאי, Get/Set, מאפיין Y ו-ToString().',
                 returns: 'הגדרת מחלקה עם כימוס מלא.',
-                desc: 'תבנית להגדרת מחלקה מותאמת אישית Point לשימוש בתוך Queue<Point>. כוללת שדות פרטיים (private), בנאי, פעולות Get/Set, מאפיין ודריסת ToString().',
+                desc: 'תבנית להגדרת מחלקה מותאמת אישית Point לשימוש בתוך Queue<Point>. כוללת שדות פרטיים (private), בנאי, פעולות Get/Set, מאפיין ודריסת ToString(). לאתחול קלט בלשונית אתחול התור יש להזין נקודות בסוגריים: (10, 20), (30, 40).',
                 triggersOnDot: false,
                 triggersStandalone: true,
                 keywords: ['class', 'point', 'custom class', 'cls', 'private', 'public', 'protected']
@@ -278,7 +278,7 @@ class AutocompleteEngine {
                 signature: 'public Queue<Point>()',
                 params: 'אין פרמטרים.',
                 returns: 'מופע תור חדש של נקודות Point.',
-                desc: 'יוצרת תור חדש של אובייקטים מסוג Point. כל איבר מוצג ככרטיסיית אובייקט עשירה עם שדות וערכים.',
+                desc: 'יוצרת תור חדש של אובייקטים מסוג Point. כל איבר מוצג ככרטיסיית אובייקט עשירה עם שדות וערכים. פורמט קלט התחלתי: (10, 20), (30, 40) או {x: 10, y: 20}.',
                 triggersOnDot: false,
                 triggersStandalone: true,
                 keywords: ['new queue<point>', 'point queue', 'queue point']
@@ -293,7 +293,7 @@ class AutocompleteEngine {
                 signature: 'public Queue<Queue<int>>()',
                 params: 'אין פרמטרים.',
                 returns: 'מופע תור של תורים חדש.',
-                desc: 'יוצרת תור מקונן של תורים (Queue of Queue). כל איבר בתור הוא בעצמו תור שלם עם מסלול פנימי וחיצי זרימה.',
+                desc: 'יוצרת תור מקונן של תורים (Queue of Queue). כל איבר בתור הוא בעצמו תור שלם עם מסלול פנימי וחיצי זרימה. פורמט קלט התחלתי: [10, 20], [30, 40], [50, 60].',
                 triggersOnDot: false,
                 triggersStandalone: true,
                 keywords: ['queue<queue', 'new queue<queue', 'queue of queue', 'superq']
