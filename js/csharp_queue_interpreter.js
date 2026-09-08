@@ -108,7 +108,7 @@ class CSharpQueueInterpreter {
 
     tokenizeLine(line, lineNum) {
         const tokens = [];
-        const regex = /\s*(==|!=|<=|>=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=|=>|[(){}\[\],;+\-*\/%<>=!.]|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])'|[a-zA-Z_]\w*(?:<[a-zA-Z0-9_, ]*>)?|-?\d+(?:\.\d+)?)\s*/g;
+        const regex = /\s*(==|!=|<=|>=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=|=>|[(){}\[\],;+\-*\/%<>=!.]|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])'|[a-zA-Z_]\w*(?:<[a-zA-Z0-9_,\s]*(?:<[a-zA-Z0-9_,\s]*(?:<[a-zA-Z0-9_,\s]*>)?>)?>)?|-?\d+(?:\.\d+)?)\s*/g;
         let match;
         while ((match = regex.exec(line)) !== null) {
             const val = match[1];
@@ -164,10 +164,17 @@ class Parser {
     }
 
     parseProgram() {
+        this.knownClasses = new Set();
+        for (let i = 0; i < this.tokens.length - 1; i++) {
+            if (this.tokens[i].value === 'class' && /^[a-zA-Z_]\w*$/.test(this.tokens[i + 1].value)) {
+                this.knownClasses.add(this.tokens[i + 1].value);
+            }
+        }
+
+        const classes = [];
         const functions = [];
         const topLevelStatements = [];
 
-        // נדלג על עטיפות class Program / namespace אם קיימות
         while (this.pos < this.tokens.length) {
             const t = this.peek();
             if (t.value === 'using' || t.value === 'namespace') {
@@ -181,11 +188,15 @@ class Parser {
             }
 
             if (t.value === 'class') {
-                this.consume(); // 'class'
-                if (this.pos < this.tokens.length) this.consume(); // class name
-                if (this.match('{')) {
-                    continue;
+                const cls = this.parseClass();
+                classes.push(cls);
+                // הוספת פעולות סטטיות (כולל Main) לרשימת הפונקציות הכללית לקריאה ישירה
+                for (const m of cls.methods) {
+                    if (m.isStatic || m.name === 'Main') {
+                        functions.push(m);
+                    }
                 }
+                continue;
             }
 
             if (t.value === '}') {
@@ -203,16 +214,128 @@ class Parser {
 
         return {
             type: 'Program',
+            classes,
             functions,
             topLevelStatements
+        };
+    }
+
+    parseClass() {
+        const classTok = this.consume(); // 'class'
+        const nameTok = this.expectIdentifier('שם מחלקה');
+        const className = nameTok.value;
+        this.expect('{');
+        const fields = [];
+        const constructors = [];
+        const methods = [];
+
+        while (this.pos < this.tokens.length && this.peek().value !== '}') {
+            // Modifiers: public, private, protected, static, override, virtual
+            let isStatic = false;
+            let isOverride = false;
+            while (['public', 'private', 'protected', 'static', 'override', 'virtual'].includes(this.peek().value)) {
+                const m = this.consume().value;
+                if (m === 'static') isStatic = true;
+                if (m === 'override') isOverride = true;
+            }
+
+            // בנאי Constructor: className(params) { ... }
+            if (this.peek().value === className && this.peek(1).value === '(') {
+                this.consume(); // className
+                this.expect('(');
+                const params = [];
+                while (this.peek().value !== ')' && this.pos < this.tokens.length) {
+                    const type = this.consume().value;
+                    const paramName = this.expectIdentifier('שם פרמטר בנאי').value;
+                    params.push({ type, name: paramName });
+                    if (this.peek().value === ',') this.consume();
+                }
+                this.expect(')');
+                this.expect('{');
+                const body = [];
+                while (this.peek().value !== '}' && this.pos < this.tokens.length) {
+                    body.push(this.parseStatement());
+                }
+                this.expect('}');
+                constructors.push({ params, body, line: classTok.line });
+                continue;
+            }
+
+            // טיפול בשדה או מתודה
+            const memberType = this.consume().value;
+            const memberName = this.expectIdentifier('שם שדה או פעולה').value;
+
+            // תמיכה ב-Property: { get; set; }
+            if (this.peek().value === '{') {
+                this.consume();
+                let depth = 1;
+                while (this.pos < this.tokens.length && depth > 0) {
+                    if (this.peek().value === '{') depth++;
+                    else if (this.peek().value === '}') depth--;
+                    this.consume();
+                }
+                fields.push({ name: memberName, type: memberType, init: null, line: classTok.line });
+                continue;
+            }
+
+            // בדיקה האם זו מתודה
+            if (this.match('(')) {
+                const params = [];
+                while (this.peek().value !== ')' && this.pos < this.tokens.length) {
+                    const type = this.consume().value;
+                    const paramName = this.expectIdentifier('שם פרמטר').value;
+                    params.push({ type, name: paramName });
+                    if (this.peek().value === ',') this.consume();
+                }
+                this.expect(')');
+                this.expect('{');
+                const body = [];
+                while (this.peek().value !== '}' && this.pos < this.tokens.length) {
+                    body.push(this.parseStatement());
+                }
+                this.expect('}');
+                methods.push({
+                    name: memberName,
+                    returnType: memberType,
+                    isStatic,
+                    isOverride,
+                    params,
+                    body,
+                    line: classTok.line
+                });
+            } else {
+                // שדה (Field) - תמיכה גם בהגדרה מרובה: int x, y;
+                const fieldNames = [memberName];
+                while (this.match(',')) {
+                    fieldNames.push(this.expectIdentifier('שם שדה נוסף').value);
+                }
+                let init = null;
+                if (this.match('=')) {
+                    init = this.parseExpression();
+                }
+                this.expect(';');
+                for (const fn of fieldNames) {
+                    fields.push({ name: fn, type: memberType, init, line: classTok.line });
+                }
+            }
+        }
+        this.expect('}');
+
+        return {
+            type: 'ClassDeclaration',
+            name: className,
+            fields,
+            constructors,
+            methods,
+            line: classTok.line
         };
     }
 
     isFunctionStart() {
         let i = 0;
         let tok = this.peek(i);
-        while (['public', 'private', 'protected', 'static', 'void', 'int', 'char', 'bool', 'double', 'string', 'var'].includes(tok.value) ||
-               tok.value.startsWith('Queue<') || tok.value.startsWith('Queue')) {
+        while (['public', 'private', 'protected', 'static', 'override', 'virtual', 'void', 'int', 'char', 'bool', 'double', 'string', 'var'].includes(tok.value) ||
+               tok.value.startsWith('Queue<') || tok.value.startsWith('Queue') || (this.knownClasses && this.knownClasses.has(tok.value))) {
             i++;
             tok = this.peek(i);
         }
@@ -347,7 +470,16 @@ class Parser {
     }
 
     isType(val) {
-        return ['int', 'char', 'double', 'bool', 'string', 'void', 'var'].includes(val) || val.startsWith('Queue');
+        if (!val) return false;
+        if (['int', 'char', 'double', 'bool', 'string', 'void', 'var'].includes(val)) return true;
+        if (val.startsWith('Queue')) return true;
+        if (this.knownClasses && this.knownClasses.has(val)) return true;
+        const next = this.peek(1);
+        const nextNext = this.peek(2);
+        if (/^[a-zA-Z_]\w*$/.test(val) && /^[a-zA-Z_]\w*$/.test(next.value) && ['=', ';', ','].includes(nextNext.value)) {
+            return true;
+        }
+        return false;
     }
 
     expectIdentifier(desc = 'מזהה') {
@@ -523,15 +655,27 @@ class Parser {
             return expr;
         }
 
-        // new Queue<int>()
+        // this keyword
+        if (tok.value === 'this') {
+            this.consume();
+            return { type: 'ThisExpression', line: tok.line };
+        }
+
+        // new Queue<int>() / new Point(10, 20) / new Queue<Queue<int>>()
         if (tok.value === 'new') {
             this.consume();
             const typeTok = this.consume();
             this.expect('(');
+            const args = [];
+            while (this.peek().value !== ')' && this.pos < this.tokens.length) {
+                args.push(this.parseExpression());
+                if (this.peek().value === ',') this.consume();
+            }
             this.expect(')');
             return {
                 type: 'NewExpression',
                 className: typeTok.value,
+                arguments: args,
                 line: tok.line
             };
         }
@@ -579,6 +723,43 @@ class Parser {
 }
 
 /**
+ * מודל מופע מחלקה (Class Instance) עבור מחלקות מותאמות אישית
+ */
+class ClassInstance {
+    constructor(className, initialFields = {}) {
+        this.id = 'obj_' + Math.random().toString(36).substring(2, 9);
+        this.className = className;
+        this.fields = { ...initialFields };
+        this.methods = new Map();
+    }
+
+    clone() {
+        const copy = new ClassInstance(this.className);
+        copy.id = this.id;
+        copy.methods = this.methods;
+        for (const [k, v] of Object.entries(this.fields)) {
+            if (v instanceof QueueInstance) {
+                copy.fields[k] = v.clone();
+            } else if (v instanceof ClassInstance) {
+                copy.fields[k] = v.clone();
+            } else {
+                copy.fields[k] = v;
+            }
+        }
+        return copy;
+    }
+
+    toString() {
+        const fieldStrs = Object.entries(this.fields).map(([k, v]) => {
+            if (v instanceof QueueInstance) return `${k}: Queue[...]`;
+            if (v instanceof ClassInstance) return `${k}: ${v.className}`;
+            return `${k}: ${v}`;
+        });
+        return `${this.className} { ${fieldStrs.join(', ')} }`;
+    }
+}
+
+/**
  * מודל התור (Queue)
  */
 class QueueInstance {
@@ -621,7 +802,13 @@ class QueueInstance {
     }
 
     clone(newName) {
-        const copy = new QueueInstance(newName || this.name, this.items, this.itemType);
+        const clonedItems = this.items.map(it => {
+            if (it instanceof QueueInstance) return it.clone();
+            if (it instanceof ClassInstance) return it.clone();
+            return it;
+        });
+        const copy = new QueueInstance(newName || this.name, clonedItems, this.itemType);
+        copy.id = this.id;
         return copy;
     }
 
@@ -640,6 +827,14 @@ class RuntimeEnvironment {
         this.maxSteps = maxSteps;
         this.stepCount = 0;
         this.frames = [];
+
+        // מחלקות מותאמות אישית
+        this.classes = new Map();
+        if (ast.classes) {
+            for (const cls of ast.classes) {
+                this.classes.set(cls.name, cls);
+            }
+        }
 
         // מפת התורים הפעילים (תתחיל ריקה אלא אם כן נזהה פרמטר Queue בארגומנטים)
         this.queues = new Map();
@@ -677,16 +872,46 @@ class RuntimeEnvironment {
         if (entryFunction) {
             for (const param of entryFunction.params) {
                 if (param.type.startsWith('Queue')) {
-                    const match = param.type.match(/Queue<([^>]+)>/);
+                    const match = param.type.match(/^Queue<(.+)>$/);
                     const qType = match ? match[1].trim() : 'int';
-                    const queueInst = new QueueInstance(param.name, this.initialValues, qType);
+                    let queueInst;
+                    if (qType.startsWith('Queue')) {
+                        const subType = qType.match(/^Queue<(.+)>$/) ? qType.match(/^Queue<(.+)>$/)[1].trim() : 'int';
+                        queueInst = new QueueInstance(param.name, [], qType);
+                        this.queues.set(param.name, queueInst);
+                        if (Array.isArray(this.initialValues)) {
+                            this.initialValues.forEach((sub, sIdx) => {
+                                if (sub instanceof QueueInstance) {
+                                    queueInst.insert(sub);
+                                } else if (Array.isArray(sub)) {
+                                    const subQ = new QueueInstance(`sub_${sIdx + 1}`, sub, subType);
+                                    this.queues.set(subQ.name, subQ);
+                                    queueInst.insert(subQ);
+                                }
+                            });
+                        }
+                    } else if (this.classes.has(qType)) {
+                        queueInst = new QueueInstance(param.name, [], qType);
+                        if (Array.isArray(this.initialValues)) {
+                            this.initialValues.forEach(val => {
+                                if (val instanceof ClassInstance) {
+                                    queueInst.insert(val);
+                                } else if (val && typeof val === 'object') {
+                                    const inst = new ClassInstance(qType, val);
+                                    queueInst.insert(inst);
+                                }
+                            });
+                        }
+                    } else {
+                        queueInst = new QueueInstance(param.name, this.initialValues, qType);
+                    }
                     this.queues.set(param.name, queueInst);
                     initialArgs.push(queueInst);
                     if (!this.hasInitialQueue) {
                         this.hasInitialQueue = true;
                         this.initialQueueName = param.name;
                         this.initialQueueType = qType;
-                        this.initialQueueSnapshot = [...this.initialValues];
+                        this.initialQueueSnapshot = this.snapshotItems(queueInst.items);
                     }
                 } else {
                     initialArgs.push(0);
@@ -722,7 +947,7 @@ class RuntimeEnvironment {
                 originalPreserved = false;
             } else {
                 for (let i = 0; i < this.initialQueueSnapshot.length; i++) {
-                    if (finalQ.items[i] !== this.initialQueueSnapshot[i]) {
+                    if (this.formatVal(finalQ.items[i]) !== this.formatVal(this.initialQueueSnapshot[i])) {
                         originalPreserved = false;
                         break;
                     }
@@ -805,7 +1030,7 @@ class RuntimeEnvironment {
                 }
                 const isQueue = stmt.varType.startsWith('Queue') || (val instanceof QueueInstance);
                 if (isQueue) {
-                    const match = stmt.varType.match(/Queue<([^>]+)>/);
+                    const match = stmt.varType.match(/^Queue<(.+)>$/);
                     const qType = match ? match[1].trim() : (val instanceof QueueInstance ? (val.itemType || 'int') : 'int');
                     if (!(val instanceof QueueInstance)) {
                         val = new QueueInstance(stmt.varName, [], qType);
@@ -872,15 +1097,44 @@ class RuntimeEnvironment {
             case 'Literal':
                 return expr.value;
 
+            case 'ThisExpression': {
+                if (scope.has('this')) {
+                    return scope.get('this');
+                }
+                throw { line: expr.line, message: 'השימוש במילת המפתח this מותר רק בתוך בנאי או פעולה של מחלקה' };
+            }
+
             case 'Identifier': {
                 if (scope.has(expr.name)) {
                     return scope.get(expr.name);
                 }
+                if (scope.has('this')) {
+                    const thisObj = scope.get('this');
+                    if (thisObj instanceof ClassInstance && expr.name in thisObj.fields) {
+                        return thisObj.fields[expr.name];
+                    }
+                }
                 if (this.queues.has(expr.name)) {
                     return this.queues.get(expr.name);
                 }
-                // ערך ברירת מחדל או שגיאה
+                // ערך ברירת מחדל
                 return 0;
+            }
+
+            case 'MemberExpression': {
+                const obj = this.evaluateExpression(expr.object, scope);
+                if (!obj) {
+                    throw { line: expr.line, message: `גישה לשדה '${expr.property}' של אובייקט לא מאותחל (null)` };
+                }
+                if (obj instanceof ClassInstance) {
+                    return obj.fields[expr.property] !== undefined ? obj.fields[expr.property] : 0;
+                }
+                if (obj instanceof QueueInstance) {
+                    if (expr.property === 'Count' || expr.property === 'Length') {
+                        return obj.items.length;
+                    }
+                }
+                return obj[expr.property];
             }
 
             case 'UnaryExpression': {
@@ -919,50 +1173,151 @@ class RuntimeEnvironment {
 
             case 'AssignmentExpression': {
                 let targetName = null;
+                let targetObj = null;
+                let targetProp = null;
+
                 if (expr.left.type === 'Identifier') {
                     targetName = expr.left.name;
+                } else if (expr.left.type === 'MemberExpression') {
+                    targetObj = this.evaluateExpression(expr.left.object, scope);
+                    targetProp = expr.left.property;
+                    if (!targetObj) {
+                        throw { line: expr.line, message: `גישה לשדה '${targetProp}' של אובייקט לא מאותחל (null)` };
+                    }
                 } else {
-                    throw { line: expr.line, message: 'השמה מותרת רק למשתנה' };
+                    throw { line: expr.line, message: 'השמה מותרת רק למשתנה או לשדה של אובייקט' };
                 }
 
                 const rightVal = this.evaluateExpression(expr.right, scope);
-                let currentVal = scope.has(targetName) ? scope.get(targetName) : 0;
-                let finalVal = rightVal;
 
-                if (expr.operator === '+=') finalVal = currentVal + rightVal;
-                else if (expr.operator === '-=') finalVal = currentVal - rightVal;
-                else if (expr.operator === '*=') finalVal = currentVal * rightVal;
-                else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
+                if (targetName) {
+                    let currentVal = scope.has(targetName) ? scope.get(targetName) : 0;
+                    let finalVal = rightVal;
 
-                scope.set(targetName, finalVal);
-                if (finalVal instanceof QueueInstance) {
-                    finalVal.name = targetName;
-                    this.queues.set(targetName, finalVal);
-                    this.recordFrame(expr.line, `אתחול והשמת תור חדש בחלון: ${targetName} = new Queue()`, 'idle', false, null, targetName);
+                    if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                    else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                    else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                    else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
+
+                    scope.set(targetName, finalVal);
+                    if (finalVal instanceof QueueInstance) {
+                        finalVal.name = targetName;
+                        this.queues.set(targetName, finalVal);
+                        this.recordFrame(expr.line, `אתחול והשמת תור חדש בחלון: ${targetName} = new Queue()`, 'idle', false, null, targetName);
+                        return finalVal;
+                    }
+
+                    this.recordFrame(expr.line, `השמה: ${targetName} = ${this.formatVal(finalVal)}`);
+                    return finalVal;
+                } else if (targetObj && targetProp) {
+                    let currentVal = (targetObj.fields && targetObj.fields[targetProp] !== undefined)
+                        ? targetObj.fields[targetProp]
+                        : (targetObj[targetProp] !== undefined ? targetObj[targetProp] : 0);
+                    let finalVal = rightVal;
+
+                    if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                    else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                    else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                    else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
+
+                    if (targetObj instanceof ClassInstance) {
+                        targetObj.fields[targetProp] = finalVal;
+                    } else {
+                        targetObj[targetProp] = finalVal;
+                    }
+
+                    this.recordFrame(expr.line, `השמה לשדה: ${targetProp} = ${this.formatVal(finalVal)}`);
                     return finalVal;
                 }
-
-                this.recordFrame(expr.line, `השמה: ${targetName} = ${this.formatVal(finalVal)}`);
-                return finalVal;
+                break;
             }
 
             case 'UpdateExpression': {
-                const varName = expr.argument.name;
-                let currentVal = scope.has(varName) ? scope.get(varName) : 0;
-                if (expr.operator === '++') currentVal++;
-                else if (expr.operator === '--') currentVal--;
-                scope.set(varName, currentVal);
-                this.recordFrame(expr.line, `קידום משתנה: ${varName} הפך ל-${currentVal}`);
-                return currentVal;
+                if (expr.argument.type === 'Identifier') {
+                    const varName = expr.argument.name;
+                    let currentVal = scope.has(varName) ? scope.get(varName) : 0;
+                    if (expr.operator === '++') currentVal++;
+                    else if (expr.operator === '--') currentVal--;
+                    scope.set(varName, currentVal);
+                    this.recordFrame(expr.line, `קידום משתנה: ${varName} הפך ל-${currentVal}`);
+                    return currentVal;
+                } else if (expr.argument.type === 'MemberExpression') {
+                    const targetObj = this.evaluateExpression(expr.argument.object, scope);
+                    const prop = expr.argument.property;
+                    let currentVal = (targetObj && targetObj.fields && targetObj.fields[prop] !== undefined)
+                        ? targetObj.fields[prop] : 0;
+                    if (expr.operator === '++') currentVal++;
+                    else if (expr.operator === '--') currentVal--;
+                    if (targetObj instanceof ClassInstance) targetObj.fields[prop] = currentVal;
+                    this.recordFrame(expr.line, `קידום שדה: ${prop} הפך ל-${currentVal}`);
+                    return currentVal;
+                }
+                break;
             }
 
             case 'NewExpression': {
                 if (expr.className.startsWith('Queue')) {
-                    const match = expr.className.match(/Queue<([^>]+)>/);
-                    const qType = match ? match[1].trim() : 'int';
-                    const newQ = new QueueInstance('temp_' + (this.queues.size + 1), [], qType);
+                    let innerType = 'int';
+                    const qMatch = expr.className.match(/^Queue<(.+)>$/);
+                    if (qMatch) {
+                        innerType = qMatch[1].trim();
+                    }
+                    const newQ = new QueueInstance('temp_' + (this.queues.size + 1), [], innerType);
                     return newQ;
                 }
+
+                if (this.classes.has(expr.className)) {
+                    const classDecl = this.classes.get(expr.className);
+                    const instance = new ClassInstance(classDecl.name);
+
+                    for (const f of classDecl.fields) {
+                        let defaultVal = 0;
+                        if (f.type === 'string') defaultVal = '';
+                        else if (f.type === 'bool') defaultVal = false;
+                        else if (f.type === 'char') defaultVal = ' ';
+                        else if (f.type.startsWith('Queue')) defaultVal = null;
+                        if (f.init) {
+                            defaultVal = this.evaluateExpression(f.init, new Map());
+                        }
+                        instance.fields[f.name] = defaultVal;
+                    }
+
+                    for (const m of classDecl.methods) {
+                        instance.methods.set(m.name, m);
+                    }
+
+                    const evalArgs = (expr.arguments || []).map(arg => this.evaluateExpression(arg, scope));
+                    let ctor = null;
+                    if (classDecl.constructors && classDecl.constructors.length > 0) {
+                        ctor = classDecl.constructors.find(c => c.params.length === evalArgs.length) || classDecl.constructors[0];
+                    }
+
+                    if (ctor) {
+                        const ctorScope = new Map();
+                        ctorScope.set('this', instance);
+                        ctor.params.forEach((param, idx) => {
+                            ctorScope.set(param.name, evalArgs[idx] !== undefined ? evalArgs[idx] : 0);
+                        });
+                        this.callStack.push({
+                            funcName: `${classDecl.name} (בנאי Constructor)`,
+                            line: expr.line,
+                            scope: ctorScope
+                        });
+                        this.recordFrame(expr.line, `קריאה לבנאי new ${classDecl.name}(${evalArgs.map(v => this.formatVal(v)).join(', ')})`);
+
+                        for (const stmt of ctor.body) {
+                            const ret = this.executeStatement(stmt, ctorScope);
+                            if (ret !== undefined) break;
+                        }
+                        this.callStack.pop();
+                        this.recordFrame(expr.line, `סיום בנאי ${classDecl.name} ויצירת מופע חדש: ${this.formatVal(instance)}`);
+                    } else {
+                        this.recordFrame(expr.line, `יצירת מופע של ${classDecl.name}`);
+                    }
+
+                    return instance;
+                }
+
                 return {};
             }
 
@@ -995,7 +1350,61 @@ class RuntimeEnvironment {
 
                 const obj = this.evaluateExpression(expr.object, scope);
 
-                // תמיכה ב-ToString()
+                // תמיכה במתודות של ClassInstance
+                if (obj instanceof ClassInstance) {
+                    if (expr.method === 'ToString') {
+                        if (obj.methods.has('ToString')) {
+                            const methodDecl = obj.methods.get('ToString');
+                            const mScope = new Map();
+                            mScope.set('this', obj);
+                            this.callStack.push({
+                                funcName: `${obj.className}.ToString()`,
+                                line: expr.line,
+                                scope: mScope
+                            });
+                            let res = null;
+                            for (const stmt of methodDecl.body) {
+                                const ret = this.executeStatement(stmt, mScope);
+                                if (ret !== undefined) {
+                                    res = ret;
+                                    break;
+                                }
+                            }
+                            this.callStack.pop();
+                            return res !== null ? String(res) : obj.toString();
+                        }
+                        return obj.toString();
+                    }
+
+                    if (obj.methods.has(expr.method)) {
+                        const methodDecl = obj.methods.get(expr.method);
+                        const evalArgs = (expr.arguments || []).map(arg => this.evaluateExpression(arg, scope));
+                        const methodScope = new Map();
+                        methodScope.set('this', obj);
+                        methodDecl.params.forEach((param, idx) => {
+                            methodScope.set(param.name, evalArgs[idx] !== undefined ? evalArgs[idx] : 0);
+                        });
+                        this.callStack.push({
+                            funcName: `${obj.className}.${expr.method}()`,
+                            line: expr.line,
+                            scope: methodScope
+                        });
+                        this.recordFrame(expr.line, `קריאה לפעולה ${obj.className}.${expr.method}(${evalArgs.map(v => this.formatVal(v)).join(', ')})`);
+                        let res = undefined;
+                        for (const stmt of methodDecl.body) {
+                            const ret = this.executeStatement(stmt, methodScope);
+                            if (ret !== undefined) {
+                                res = ret;
+                                break;
+                            }
+                        }
+                        this.callStack.pop();
+                        this.recordFrame(expr.line, `חזרה מפעולת ${obj.className}.${expr.method}`);
+                        return res;
+                    }
+                }
+
+                // תמיכה ב-ToString() גנרי
                 if (expr.method === 'ToString') {
                     return this.formatVal(obj);
                 }
@@ -1005,12 +1414,12 @@ class RuntimeEnvironment {
                     if (methodName === 'Insert') {
                         const insertVal = this.evaluateExpression(expr.arguments[0], scope);
                         obj.insert(insertVal);
-                        this.recordFrame(expr.line, `פעולת ${obj.name}.Insert(${insertVal}): הכנסת ${insertVal} לסוף התור`, 'insert', false, null, obj.name, insertVal);
+                        this.recordFrame(expr.line, `פעולת ${obj.name}.Insert(${this.formatVal(insertVal)}): הכנסת ${this.formatVal(insertVal)} לסוף התור`, 'insert', false, null, obj.name, insertVal);
                         return null;
                     } else if (methodName === 'Remove') {
                         try {
                             const removedVal = obj.remove();
-                            this.recordFrame(expr.line, `פעולת ${obj.name}.Remove(): הוצאת ${removedVal} מראש התור`, 'remove', false, null, obj.name, removedVal);
+                            this.recordFrame(expr.line, `פעולת ${obj.name}.Remove(): הוצאת ${this.formatVal(removedVal)} מראש התור`, 'remove', false, null, obj.name, removedVal);
                             return removedVal;
                         } catch (err) {
                             throw { line: expr.line, message: err.message };
@@ -1018,7 +1427,7 @@ class RuntimeEnvironment {
                     } else if (methodName === 'Head') {
                         try {
                             const headVal = obj.head();
-                            this.recordFrame(expr.line, `פעולת ${obj.name}.Head(): הצצה בראש התור (${headVal}) ללא שינוי`, 'head', false, null, obj.name, headVal);
+                            this.recordFrame(expr.line, `פעולת ${obj.name}.Head(): הצצה בראש התור (${this.formatVal(headVal)}) ללא שינוי`, 'head', false, null, obj.name, headVal);
                             return headVal;
                         } catch (err) {
                             throw { line: expr.line, message: err.message };
@@ -1032,7 +1441,7 @@ class RuntimeEnvironment {
                     }
                 }
                 const targetObjName = expr.object && expr.object.name ? `'${expr.object.name}'` : 'האובייקט';
-                throw { line: expr.line, message: `${targetObjName} אינו תור מאותחל (האם שכחת להגדירו או לקרוא ל-new Queue<int>()?)` };
+                throw { line: expr.line, message: `${targetObjName} אינו תור או אובייקט מאותחל` };
             }
 
             case 'FunctionCallExpression': {
@@ -1067,19 +1476,62 @@ class RuntimeEnvironment {
         return null;
     }
 
+    snapshotItems(items) {
+        return items.map(item => {
+            if (item instanceof QueueInstance) {
+                return {
+                    isQueue: true,
+                    name: item.name,
+                    itemType: item.itemType || 'int',
+                    items: this.snapshotItems(item.items)
+                };
+            }
+            if (item instanceof ClassInstance) {
+                const snapFields = {};
+                for (const [k, v] of Object.entries(item.fields)) {
+                    if (v instanceof QueueInstance) {
+                        snapFields[k] = `Queue [${v.items.length}]`;
+                    } else if (v instanceof ClassInstance) {
+                        snapFields[k] = v.className;
+                    } else {
+                        snapFields[k] = v;
+                    }
+                }
+                return {
+                    isClass: true,
+                    className: item.className,
+                    fields: snapFields,
+                    toStringVal: this.formatVal(item)
+                };
+            }
+            if (item && typeof item === 'object' && item.isQueue) {
+                return {
+                    isQueue: true,
+                    name: item.name,
+                    itemType: item.itemType || 'int',
+                    items: this.snapshotItems(item.items)
+                };
+            }
+            if (item && typeof item === 'object' && item.isClass) {
+                return { ...item, fields: { ...item.fields } };
+            }
+            return item;
+        });
+    }
+
     recordFrame(line, description, opType = 'idle', isCompleted = false, originalPreserved = null, targetQueueName = null, targetValue = null) {
         this.stepCount++;
 
-        // שכפול מצב התורים
+        // שכפול מצב התורים כולל אובייקטים ותורים מקוננים (Deep Snapshotting)
         const queuesSnapshot = [];
         this.queues.forEach((qInst, qName) => {
             queuesSnapshot.push({
                 name: qName,
                 id: qInst.id,
                 itemType: qInst.itemType || 'int',
-                items: [...qInst.items],
+                items: this.snapshotItems(qInst.items),
                 lastOp: (targetQueueName === qName) ? opType : 'none',
-                targetVal: (targetQueueName === qName) ? targetValue : null
+                targetVal: (targetQueueName === qName) ? (targetValue instanceof ClassInstance ? targetValue.clone() : (targetValue instanceof QueueInstance ? targetValue.clone() : targetValue)) : null
             });
         });
 
@@ -1125,7 +1577,30 @@ class RuntimeEnvironment {
 
     formatVal(val) {
         if (val instanceof QueueInstance) {
-            return `Queue [${val.items.join(', ')}]`;
+            return `Queue [${val.items.map(it => this.formatVal(it)).join(', ')}]`;
+        }
+        if (val instanceof ClassInstance) {
+            if (val.methods && val.methods.has('ToString')) {
+                try {
+                    const methodDecl = val.methods.get('ToString');
+                    const mScope = new Map();
+                    mScope.set('this', val);
+                    for (const stmt of methodDecl.body) {
+                        if (stmt.type === 'ReturnStatement' && stmt.value) {
+                            return String(this.evaluateExpression(stmt.value, mScope));
+                        }
+                    }
+                } catch (e) {}
+            }
+            return val.toString();
+        }
+        if (val && typeof val === 'object' && val.isQueue) {
+            return `Queue [${val.items.map(it => this.formatVal(it)).join(', ')}]`;
+        }
+        if (val && typeof val === 'object' && val.isClass) {
+            if (val.toStringVal) return val.toStringVal;
+            const fieldStrs = Object.entries(val.fields).map(([k, v]) => `${k}: ${this.formatVal(v)}`);
+            return `${val.className} { ${fieldStrs.join(', ')} }`;
         }
         if (typeof val === 'boolean') {
             return val ? 'true' : 'false';
@@ -1143,7 +1618,9 @@ class RuntimeEnvironment {
 // ייצוא גלובלי לשימוש בדפדפן או Node
 if (typeof window !== 'undefined') {
     window.CSharpQueueInterpreter = CSharpQueueInterpreter;
+    window.QueueInstance = QueueInstance;
+    window.ClassInstance = ClassInstance;
 }
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { CSharpQueueInterpreter, QueueInstance, RuntimeEnvironment };
+    module.exports = { CSharpQueueInterpreter, QueueInstance, ClassInstance, RuntimeEnvironment };
 }

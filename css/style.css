@@ -1038,6 +1038,203 @@ body {
     padding: 0 0.65rem;
 }
 
+/* איברים מורכבים בתור (מחלקות ותורים מקוננים) */
+.queue-node.node-complex {
+    min-width: 155px;
+    max-width: 260px;
+    height: 84px;
+    padding: 0.35rem 0.55rem;
+    border-radius: 10px;
+    justify-content: space-between;
+    align-items: stretch;
+}
+
+.queue-node.node-custom-class {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    border: 2px solid #38bdf8;
+    box-shadow: 0 4px 10px rgba(56, 189, 248, 0.25);
+}
+
+.custom-class-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    width: 100%;
+    gap: 0.15rem;
+    overflow: hidden;
+    text-align: left;
+    direction: ltr;
+}
+
+.class-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-bottom: 0.12rem;
+}
+
+.class-card-header .class-icon {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.class-card-header .class-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #7dd3fc;
+    letter-spacing: 0.02em;
+    font-family: 'Consolas', monospace;
+}
+
+.class-card-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+    font-family: 'Consolas', monospace;
+    font-size: 0.78rem;
+    line-height: 1.15;
+}
+
+.class-card-fields .field-item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.08rem 0.32rem;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.field-key {
+    color: #cbd5e1;
+}
+
+.field-val {
+    color: #fef08a;
+}
+
+.class-card-tostring {
+    font-size: 0.72rem;
+    font-family: 'Consolas', monospace;
+    color: #a7f3d0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(16, 185, 129, 0.15);
+    border-radius: 4px;
+    padding: 0.08rem 0.35rem;
+    text-align: center;
+}
+
+.queue-node.node-nested-queue {
+    background: linear-gradient(135deg, #181825 0%, #11111b 100%) !important;
+    border: 2px solid #cba6f7;
+    box-shadow: 0 4px 10px rgba(203, 166, 247, 0.25);
+    min-width: 170px;
+}
+
+.nested-queue-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    width: 100%;
+    gap: 0.2rem;
+    overflow: hidden;
+    direction: ltr;
+}
+
+.nested-q-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-bottom: 0.12rem;
+}
+
+.nested-q-title {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #cba6f7;
+    font-family: 'Consolas', monospace;
+}
+
+.nested-q-count {
+    font-size: 0.72rem;
+    color: #a6adc8;
+    font-weight: 700;
+}
+
+.nested-q-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+}
+
+.nested-q-flow {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    direction: ltr;
+    font-family: 'Consolas', monospace;
+    font-size: 0.78rem;
+    color: #a6e3a1;
+    white-space: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.nested-gate-label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 0 0.25rem;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    color: #f9e2af;
+}
+
+.nested-sub-item {
+    background: #313244;
+    color: #ffffff;
+    padding: 0.08rem 0.35rem;
+    border-radius: 4px;
+    font-weight: 700;
+}
+
+.nested-arrow {
+    color: #89b4fa;
+    font-size: 0.7rem;
+}
+
+.nested-q-empty {
+    font-size: 0.75rem;
+    color: #6c7086;
+    font-style: italic;
+}
+
+/* תפריט בחירת דוגמאות קוד מהיר */
+.example-select {
+    padding: 0.18rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: var(--text-main);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.example-select:hover {
+    border-color: var(--primary);
+    background: #f8fafc;
+}
+
 /* תגיות Head ו-Tail ברורות ומודגשות מעל ומתחת לאיבר */
 .node-role-badge {
     position: absolute;

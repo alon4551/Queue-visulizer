@@ -77,6 +77,7 @@ class QueueVisualizerApp {
         this.dom.tabPaneVars = document.getElementById('tab-pane-vars');
         this.dom.tabPaneStack = document.getElementById('tab-pane-stack');
 
+        this.dom.exampleCodeSelect = document.getElementById('example-code-select');
         this.dom.autocompletePopup = document.getElementById('autocomplete-popup');
 
         if (typeof AutocompleteEngine !== 'undefined' && this.dom.autocompletePopup) {
@@ -344,11 +345,240 @@ class QueueVisualizerApp {
         setupMinimizeToggle(this.dom.btnToggleStatus, this.dom.statusBanner);
         setupMinimizeToggle(this.dom.btnToggleConsole, this.dom.consoleCard);
         setupMinimizeToggle(this.dom.btnToggleTabs, this.dom.inspectionCard);
+
+        // טעינת דוגמאות קוד מוכנות (Presets)
+        if (this.dom.exampleCodeSelect) {
+            this.dom.exampleCodeSelect.addEventListener('change', (e) => {
+                const choice = e.target.value;
+                if (!choice) return;
+
+                if (choice === 'basic') {
+                    this.dom.codeTextarea.value = `// מציאת ערך מקסימלי בתור של מספרים
+public static int FindMax(Queue<int> q)
+{
+    Queue<int> temp = new Queue<int>();
+    int maxVal = q.Head();
+
+    while (!q.IsEmpty())
+    {
+        int x = q.Remove();
+        Console.WriteLine("בודק איבר: " + x);
+        if (x > maxVal)
+        {
+            maxVal = x;
+        }
+        temp.Insert(x);
+    }
+
+    // שחזור התור המקורי (שמירה על כלל הברזל בבגרות)
+    while (!temp.IsEmpty())
+    {
+        q.Insert(temp.Remove());
+    }
+
+    Console.WriteLine("המקסימום שנמצא: " + maxVal);
+    return maxVal;
+}
+
+public static void Main(Queue<int> q)
+{
+    int max = FindMax(q);
+}`;
+                    this.initialQueueType = 'int';
+                    this.initialQueue = [14, 7, 25, 9, 31];
+                } else if (choice === 'chars') {
+                    this.dom.codeTextarea.value = `// ספירת מופעים של תו מסוים בתור של תווים
+public static int CountChar(Queue<char> q, char target)
+{
+    Queue<char> temp = new Queue<char>();
+    int count = 0;
+
+    while (!q.IsEmpty())
+    {
+        char c = q.Remove();
+        if (c == target)
+        {
+            count++;
+        }
+        temp.Insert(c);
+    }
+
+    // שחזור התור המקורי
+    while (!temp.IsEmpty())
+    {
+        q.Insert(temp.Remove());
+    }
+
+    Console.WriteLine("התו '" + target + "' נמצא " + count + " פעמים");
+    return count;
+}
+
+public static void Main(Queue<char> q)
+{
+    CountChar(q, 'a');
+}`;
+                    this.initialQueueType = 'char';
+                    this.initialQueue = ['a', 'b', 'a', 'c', 'a', 'd'];
+                } else if (choice === 'strings') {
+                    this.dom.codeTextarea.value = `// שרשור שמות מתור של מחרוזות
+public static string JoinNames(Queue<string> q)
+{
+    Queue<string> temp = new Queue<string>();
+    string result = "";
+
+    while (!q.IsEmpty())
+    {
+        string name = q.Remove();
+        Console.WriteLine("שולף שם: " + name);
+        result = result + name + " ";
+        temp.Insert(name);
+    }
+
+    while (!temp.IsEmpty())
+    {
+        q.Insert(temp.Remove());
+    }
+
+    Console.WriteLine("תוצאת השרשור: " + result);
+    return result;
+}
+
+public static void Main(Queue<string> q)
+{
+    JoinNames(q);
+}`;
+                    this.initialQueueType = 'string';
+                    this.initialQueue = ['Dana', 'Alon', 'Maya', 'Noam'];
+                } else if (choice === 'class-point') {
+                    this.dom.codeTextarea.value = `// שימוש במחלקה מותאמת אישית Point בתוך תור Queue<Point>
+class Point
+{
+    public int x;
+    public int y;
+
+    public Point(int x, int y)
+    {
+        this.x = x;
+        this.y = y;
+    }
+
+    public override string ToString()
+    {
+        return "(" + this.x + ", " + this.y + ")";
+    }
+}
+
+class Program
+{
+    public static void Main(Queue<Point> q)
+    {
+        Queue<Point> temp = new Queue<Point>();
+
+        while (!q.IsEmpty())
+        {
+            Point p = q.Remove();
+            Console.WriteLine("נקודה שנשלפה: " + p.ToString() + " (x=" + p.x + ", y=" + p.y + ")");
+            temp.Insert(p);
+        }
+
+        while (!temp.IsEmpty())
+        {
+            q.Insert(temp.Remove());
+        }
+    }
+}`;
+                    this.initialQueueType = 'Point';
+                    this.initialQueue = [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }];
+                } else if (choice === 'queue-of-queues') {
+                    this.dom.codeTextarea.value = `// עבודה עם תור של תורים Queue<Queue<int>>
+class Program
+{
+    public static void Main(Queue<Queue<int>> superQ)
+    {
+        Queue<Queue<int>> tempSuper = new Queue<Queue<int>>();
+        int grandTotal = 0;
+
+        while (!superQ.IsEmpty())
+        {
+            Queue<int> subQ = superQ.Remove();
+            Console.WriteLine("מעבד תור פנימי: " + subQ.ToString());
+
+            int subSum = 0;
+            Queue<int> tempSub = new Queue<int>();
+
+            while (!subQ.IsEmpty())
+            {
+                int val = subQ.Remove();
+                subSum = subSum + val;
+                tempSub.Insert(val);
+            }
+
+            // שחזור התור הפנימי
+            while (!tempSub.IsEmpty())
+            {
+                subQ.Insert(tempSub.Remove());
+            }
+
+            Console.WriteLine("סכום התור הפנימי: " + subSum);
+            grandTotal = grandTotal + subSum;
+            tempSuper.Insert(subQ);
+        }
+
+        // שחזור תור התורים
+        while (!tempSuper.IsEmpty())
+        {
+            superQ.Insert(tempSuper.Remove());
+        }
+
+        Console.WriteLine("סכום כולל של כל התורים: " + grandTotal);
+    }
+}`;
+                    this.initialQueueType = 'Queue<int>';
+                    this.initialQueue = [[10, 20], [30, 40, 50], [60]];
+                }
+
+                if (this.dom.initialQueueInput) {
+                    this.dom.initialQueueInput.value = this.formatQueueInputValue(this.initialQueue, this.initialQueueType);
+                }
+                this.updateLineNumbers();
+                this.recompile();
+                e.target.value = '';
+            });
+        }
     }
 
     parseQueueInput(raw, targetType = 'int') {
         raw = (raw || '').trim();
         if (!raw) return [];
+
+        if (targetType === 'Point') {
+            const points = [];
+            const regex = /\(\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/g;
+            let m;
+            while ((m = regex.exec(raw)) !== null) {
+                points.push({ x: Number(m[1]), y: Number(m[2]) });
+            }
+            if (points.length === 0) {
+                throw new Error("עבור Queue<Point> יש להזין נקודות בסוגריים, לדוגמה: (10, 20), (30, 40), (50, 60)");
+            }
+            return points;
+        }
+
+        if (targetType.startsWith('Queue')) {
+            const subTypeMatch = targetType.match(/^Queue<(.+)>$/);
+            const subType = subTypeMatch ? subTypeMatch[1].trim() : 'int';
+            const subQueues = [];
+            const regex = /\[([^\]]+)\]/g;
+            let m;
+            while ((m = regex.exec(raw)) !== null) {
+                const innerParsed = this.parseQueueInput(m[1], subType);
+                subQueues.push(innerParsed);
+            }
+            if (subQueues.length === 0) {
+                throw new Error("עבור תור של תורים Queue<Queue<...>> יש להזין תורים פנימיים בסוגריים מרובעים, לדוגמה: [10, 20], [30, 40]");
+            }
+            return subQueues;
+        }
 
         const rawItems = raw.split(',').map(s => s.trim()).filter(Boolean);
         if (rawItems.length === 0) return [];
@@ -398,8 +628,25 @@ class QueueVisualizerApp {
     }
 
     generateRandomQueue(type = 'int') {
-        const count = Math.floor(Math.random() * 3) + 4; // 4 to 6 items
-        if (type === 'char') {
+        const count = Math.floor(Math.random() * 3) + 3; // 3 to 5 items
+        if (type === 'Point') {
+            const points = [];
+            for (let i = 0; i < 3; i++) {
+                points.push({
+                    x: Math.floor(Math.random() * 20) + 1,
+                    y: Math.floor(Math.random() * 20) + 1
+                });
+            }
+            return points;
+        } else if (type.startsWith('Queue')) {
+            const subTypeMatch = type.match(/^Queue<(.+)>$/);
+            const subType = subTypeMatch ? subTypeMatch[1].trim() : 'int';
+            const subQueues = [];
+            for (let i = 0; i < 3; i++) {
+                subQueues.push(this.generateRandomQueue(subType).slice(0, 3));
+            }
+            return subQueues;
+        } else if (type === 'char') {
             const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
             const chars = [];
             for (let i = 0; i < count; i++) {
@@ -426,6 +673,14 @@ class QueueVisualizerApp {
 
     formatQueueInputValue(items, type = 'int') {
         if (!items || items.length === 0) return '';
+        if (type === 'Point') {
+            return items.map(p => `(${p.x}, ${p.y})`).join(', ');
+        }
+        if (type.startsWith('Queue')) {
+            const subTypeMatch = type.match(/^Queue<(.+)>$/);
+            const subType = subTypeMatch ? subTypeMatch[1].trim() : 'int';
+            return items.map(subArr => `[${this.formatQueueInputValue(subArr, subType)}]`).join(', ');
+        }
         if (type === 'char') {
             return items.map(c => `'${c}'`).join(', ');
         }
@@ -481,13 +736,17 @@ class QueueVisualizerApp {
             const qName = result.initialQueueName || 'q';
             const qType = result.initialQueueType || 'int';
 
-            // אם הטיפוס השתנה בקוד (למשל מ-int ל-char או string)
+            // אם הטיפוס השתנה בקוד (למשל מ-int ל-char, string, Point או Queue<T>)
             if (qType !== this.initialQueueType) {
                 this.initialQueueType = qType;
                 if (qType === 'char') {
                     this.initialQueue = ['a', 'b', 'c', 'd', 'e'];
                 } else if (qType === 'string') {
                     this.initialQueue = ['apple', 'banana', 'cherry', 'date'];
+                } else if (qType === 'Point') {
+                    this.initialQueue = [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }];
+                } else if (qType.startsWith('Queue')) {
+                    this.initialQueue = [[10, 20], [30, 40], [50, 60]];
                 } else {
                     this.initialQueue = [14, 7, 25, 9, 31];
                 }
@@ -507,12 +766,16 @@ class QueueVisualizerApp {
                 let typeHeb = 'מספרים שלמים int';
                 if (qType === 'char') typeHeb = "תווים יחידים char (למשל: 'a', 'b', 'c')";
                 else if (qType === 'string') typeHeb = 'מחרוזות string (למשל: "hello", "world")';
+                else if (qType === 'Point') typeHeb = 'נקודות Point (למשל: (10, 20), (30, 40))';
+                else if (qType.startsWith('Queue')) typeHeb = 'תור מקונן של תורים (למשל: [10, 20], [30, 40])';
                 this.dom.queueInitHint.innerHTML = `ערכי התור ההתחלתי (${typeHeb}) מועברים ישירות כפרמטר <code>${qName}</code> לפעולת הכניסה בעורך.`;
             }
             if (this.dom.initialQueueInput) {
                 this.dom.initialQueueInput.disabled = false;
                 if (qType === 'char') this.dom.initialQueueInput.placeholder = "לדוגמה: 'a', 'b', 'c', 'd' או a, b, c, d";
                 else if (qType === 'string') this.dom.initialQueueInput.placeholder = 'לדוגמה: "Dana", "Alon", "Ron" או Dana, Alon, Ron';
+                else if (qType === 'Point') this.dom.initialQueueInput.placeholder = 'לדוגמה: (10, 20), (30, 40), (50, 60)';
+                else if (qType.startsWith('Queue')) this.dom.initialQueueInput.placeholder = 'לדוגמה: [10, 20], [30, 40], [50, 60]';
                 else this.dom.initialQueueInput.placeholder = "לדוגמה: 14, 7, 25, 9, 31";
             }
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = false;
@@ -718,27 +981,87 @@ class QueueVisualizerApp {
                     }
                     if (isTail) {
                         node.classList.add('tail-node');
-                        if (q.lastOp === 'insert' && itemVal === q.targetVal) {
+                        let isTarget = (itemVal === q.targetVal);
+                        if (!isTarget && itemVal && q.targetVal && typeof itemVal === 'object' && typeof q.targetVal === 'object') {
+                            if (itemVal.isClass && q.targetVal.isClass && itemVal.className === q.targetVal.className) isTarget = true;
+                            if (itemVal.isQueue && q.targetVal.isQueue) isTarget = true;
+                        }
+                        if (q.lastOp === 'insert' && isTarget) {
                             node.classList.add('anim-insert');
                         }
                     }
 
-                    let displayVal = itemVal;
-                    let valClass = 'node-val';
-                    if (typeof itemVal === 'string') {
-                        if (q.itemType === 'char') {
-                            displayVal = `'${itemVal}'`;
-                            valClass += ' val-char';
-                        } else {
-                            displayVal = `"${itemVal}"`;
-                            valClass += ' val-string';
-                            node.classList.add('node-string');
+                    let innerContentHtml = '';
+
+                    if (itemVal && typeof itemVal === 'object' && itemVal.isClass) {
+                        node.classList.add('node-complex', 'node-custom-class');
+                        const fieldsHtml = Object.entries(itemVal.fields || {})
+                            .map(([k, v]) => `<div class="field-item"><span class="field-key">${k}:</span> <strong class="field-val">${v}</strong></div>`)
+                            .join('');
+
+                        let toStrHtml = '';
+                        if (itemVal.toStringVal && !itemVal.toStringVal.startsWith(itemVal.className + ' {')) {
+                            toStrHtml = `<div class="class-card-tostring" title="ToString()">${itemVal.toStringVal}</div>`;
                         }
+
+                        innerContentHtml = `
+                            <div class="custom-class-card">
+                                <div class="class-card-header">
+                                    <span class="class-icon">📦</span>
+                                    <span class="class-title">${itemVal.className}</span>
+                                </div>
+                                <div class="class-card-fields">${fieldsHtml}</div>
+                                ${toStrHtml}
+                            </div>
+                        `;
+                    } else if (itemVal && typeof itemVal === 'object' && itemVal.isQueue) {
+                        node.classList.add('node-complex', 'node-nested-queue');
+                        const subCount = itemVal.items ? itemVal.items.length : 0;
+                        let subItemsHtml = '';
+                        if (subCount === 0) {
+                            subItemsHtml = '<span class="nested-q-empty">[ תור ריק ]</span>';
+                        } else {
+                            subItemsHtml = `
+                                <div class="nested-q-flow">
+                                    <span class="nested-gate-label">H</span>
+                                    ${itemVal.items.map((subIt, sIdx) => {
+                                        let text = (subIt && typeof subIt === 'object') ? (subIt.isClass ? subIt.className : 'Queue') : subIt;
+                                        return `<span class="nested-sub-item">${text}</span>` + (sIdx < itemVal.items.length - 1 ? '<span class="nested-arrow">◀</span>' : '');
+                                    }).join('')}
+                                    <span class="nested-gate-label">T</span>
+                                </div>
+                            `;
+                        }
+
+                        innerContentHtml = `
+                            <div class="nested-queue-card">
+                                <div class="nested-q-header">
+                                    <span class="nested-q-icon">🔄</span>
+                                    <span class="nested-q-title">Queue&lt;${itemVal.itemType || 'int'}&gt;</span>
+                                    <span class="nested-q-count">(${subCount})</span>
+                                </div>
+                                <div class="nested-q-body">${subItemsHtml}</div>
+                            </div>
+                        `;
+                    } else {
+                        let displayVal = itemVal;
+                        let valClass = 'node-val';
+                        if (typeof itemVal === 'string') {
+                            if (q.itemType === 'char') {
+                                displayVal = `'${itemVal}'`;
+                                valClass += ' val-char';
+                            } else {
+                                displayVal = `"${itemVal}"`;
+                                valClass += ' val-string';
+                                node.classList.add('node-string');
+                            }
+                        }
+                        innerContentHtml = `<span class="${valClass}" title="${itemVal}">${displayVal}</span>`;
                     }
 
                     node.innerHTML = `
                         ${isTail ? '<span class="node-role-badge badge-tail">סוף (Tail)</span>' : ''}
-                        <span class="${valClass}" title="${itemVal}">${displayVal}</span>
+                        ${innerContentHtml}
                         ${isHead ? '<span class="node-role-badge badge-head">ראש (Head)</span>' : ''}
                     `;
 

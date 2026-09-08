@@ -162,6 +162,66 @@ class AutocompleteEngine {
                 triggersOnDot: false,
                 triggersStandalone: true,
                 keywords: ['while', 'while (!q', 'loop', 'scan', 'whi']
+            },
+            {
+                id: 'class-point',
+                label: 'class Point { ... }',
+                insertText: `class Point
+{
+    public int x;
+    public int y;
+
+    public Point(int x, int y)
+    {
+        this.x = x;
+        this.y = y;
+    }
+
+    public override string ToString()
+    {
+        return "(" + this.x + ", " + this.y + ")";
+    }
+}`,
+                cursorOffset: 0,
+                category: 'class',
+                typeBadge: 'מחלקה',
+                signature: 'class Point',
+                params: 'שדות x, y, בנאי ודריסת ToString().',
+                returns: 'הגדרת מחלקה מלאה.',
+                desc: 'תבנית להגדרת מחלקה מותאמת אישית Point לשימוש בתוך Queue<Point>. כוללת שדות, בנאי עם פרמטרים ודריסת ToString() להדפסה קריאה.',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['class', 'point', 'custom class', 'cls']
+            },
+            {
+                id: 'new-queue-point',
+                label: 'new Queue<Point>()',
+                insertText: 'new Queue<Point>()',
+                cursorOffset: 0,
+                category: 'instantiation',
+                typeBadge: 'Queue<Point>',
+                signature: 'public Queue<Point>()',
+                params: 'אין פרמטרים.',
+                returns: 'מופע תור חדש של נקודות Point.',
+                desc: 'יוצרת תור חדש של אובייקטים מסוג Point. כל איבר מוצג ככרטיסיית אובייקט עשירה עם שדות וערכים.',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['new queue<point>', 'point queue', 'queue point']
+            },
+            {
+                id: 'new-queue-queue',
+                label: 'new Queue<Queue<int>>()',
+                insertText: 'new Queue<Queue<int>>()',
+                cursorOffset: 0,
+                category: 'instantiation',
+                typeBadge: 'Queue<Queue<int>>',
+                signature: 'public Queue<Queue<int>>()',
+                params: 'אין פרמטרים.',
+                returns: 'מופע תור של תורים חדש.',
+                desc: 'יוצרת תור מקונן של תורים (Queue of Queue). כל איבר בתור הוא בעצמו תור שלם עם מסלול פנימי וחיצי זרימה.',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['queue<queue', 'new queue<queue', 'queue of queue', 'superq']
             }
         ];
     }
