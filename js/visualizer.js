@@ -21,9 +21,12 @@ class QueueVisualizerApp {
         this.cacheDom();
         this.bindEvents();
         this.dom.initialQueueInput.value = this.initialQueue.join(', ');
-        this.dom.codeTextarea.value = `public static void Main(Queue<int> q)
+        this.dom.codeTextarea.value = `public class Program
 {
-    
+    public static void Main(Queue<int> q)
+    {
+        
+    }
 }`;
         this.updateLineNumbers();
         this.recompile();
@@ -424,112 +427,139 @@ class QueueVisualizerApp {
 
                 if (choice === 'basic') {
                     this.dom.codeTextarea.value = `// מציאת ערך מקסימלי בתור של מספרים
-public static int FindMax(Queue<int> q)
+public class Program
 {
-    Queue<int> temp = new Queue<int>();
-    int maxVal = q.Head();
-
-    while (!q.IsEmpty())
+    public static int FindMax(Queue<int> q)
     {
-        int x = q.Remove();
-        Console.WriteLine("בודק איבר: " + x);
-        if (x > maxVal)
+        Queue<int> temp = new Queue<int>();
+        int maxVal = q.Head();
+
+        while (!q.IsEmpty())
         {
-            maxVal = x;
+            int x = q.Remove();
+            Console.WriteLine("בודק איבר: " + x);
+            if (x > maxVal)
+            {
+                maxVal = x;
+            }
+            temp.Insert(x);
         }
-        temp.Insert(x);
+
+        // שחזור התור המקורי (שמירה על כלל הברזל בבגרות)
+        while (!temp.IsEmpty())
+        {
+            q.Insert(temp.Remove());
+        }
+
+        Console.WriteLine("המקסימום שנמצא: " + maxVal);
+        return maxVal;
     }
 
-    // שחזור התור המקורי (שמירה על כלל הברזל בבגרות)
-    while (!temp.IsEmpty())
+    public static void Main(Queue<int> q)
     {
-        q.Insert(temp.Remove());
+        int max = FindMax(q);
     }
-
-    Console.WriteLine("המקסימום שנמצא: " + maxVal);
-    return maxVal;
-}
-
-public static void Main(Queue<int> q)
-{
-    int max = FindMax(q);
 }`;
                     this.initialQueueType = 'int';
                     this.initialQueue = [14, 7, 25, 9, 31];
                 } else if (choice === 'chars') {
                     this.dom.codeTextarea.value = `// ספירת מופעים של תו מסוים בתור של תווים
-public static int CountChar(Queue<char> q, char target)
+public class Program
 {
-    Queue<char> temp = new Queue<char>();
-    int count = 0;
-
-    while (!q.IsEmpty())
+    public static int CountChar(Queue<char> q, char target)
     {
-        char c = q.Remove();
-        if (c == target)
+        Queue<char> temp = new Queue<char>();
+        int count = 0;
+
+        while (!q.IsEmpty())
         {
-            count++;
+            char c = q.Remove();
+            if (c == target)
+            {
+                count++;
+            }
+            temp.Insert(c);
         }
-        temp.Insert(c);
+
+        // שחזור התור המקורי
+        while (!temp.IsEmpty())
+        {
+            q.Insert(temp.Remove());
+        }
+
+        Console.WriteLine("התו '" + target + "' נמצא " + count + " פעמים");
+        return count;
     }
 
-    // שחזור התור המקורי
-    while (!temp.IsEmpty())
+    public static void Main(Queue<char> q)
     {
-        q.Insert(temp.Remove());
+        CountChar(q, 'a');
     }
-
-    Console.WriteLine("התו '" + target + "' נמצא " + count + " פעמים");
-    return count;
-}
-
-public static void Main(Queue<char> q)
-{
-    CountChar(q, 'a');
 }`;
                     this.initialQueueType = 'char';
                     this.initialQueue = ['a', 'b', 'a', 'c', 'a', 'd'];
                 } else if (choice === 'strings') {
                     this.dom.codeTextarea.value = `// שרשור שמות מתור של מחרוזות
-public static string JoinNames(Queue<string> q)
+public class Program
 {
-    Queue<string> temp = new Queue<string>();
-    string result = "";
-
-    while (!q.IsEmpty())
+    public static string JoinNames(Queue<string> q)
     {
-        string name = q.Remove();
-        Console.WriteLine("שולף שם: " + name);
-        result = result + name + " ";
-        temp.Insert(name);
+        Queue<string> temp = new Queue<string>();
+        string result = "";
+
+        while (!q.IsEmpty())
+        {
+            string name = q.Remove();
+            Console.WriteLine("שולף שם: " + name);
+            result = result + name + " ";
+            temp.Insert(name);
+        }
+
+        while (!temp.IsEmpty())
+        {
+            q.Insert(temp.Remove());
+        }
+
+        Console.WriteLine("תוצאת השרשור: " + result);
+        return result;
     }
 
-    while (!temp.IsEmpty())
+    public static void Main(Queue<string> q)
     {
-        q.Insert(temp.Remove());
+        JoinNames(q);
     }
-
-    Console.WriteLine("תוצאת השרשור: " + result);
-    return result;
-}
-
-public static void Main(Queue<string> q)
-{
-    JoinNames(q);
 }`;
                     this.initialQueueType = 'string';
                     this.initialQueue = ['Dana', 'Alon', 'Maya', 'Noam'];
                 } else if (choice === 'class-point') {
-                    this.dom.codeTextarea.value = `// שימוש במחלקה מותאמת אישית Point בתוך תור Queue<Point>
-class Point
+                    this.dom.codeTextarea.value = `// מחלקה מותאמת אישית עם שדות private, פעולות Get/Set ומאפיין C# Property
+public class Point
 {
-    public int x;
-    public int y;
+    private int x;
+    private int y;
 
     public Point(int x, int y)
     {
         this.x = x;
         this.y = y;
+    }
+
+    // Getter ו-Setter עבור שדה פרטי x
+    public int GetX()
+    {
+        return this.x;
+    }
+
+    public void SetX(int value)
+    {
+        this.x = value;
+    }
+
+    // מאפיין (Property) ב-C# עם get ו-set עבור y
+    public int Y
+    {
+        get { return this.y; }
+        set { this.y = value; }
     }
 
     public override string ToString()
@@ -538,7 +568,7 @@ class Point
     }
 }
 
-class Program
+public class Program
 {
     public static void Main(Queue<Point> q)
     {
@@ -547,7 +577,13 @@ class Program
         while (!q.IsEmpty())
         {
             Point p = q.Remove();
-            Console.WriteLine("נקודה שנשלפה: " + p.ToString() + " (x=" + p.x + ", y=" + p.y + ")");
+            Console.WriteLine("נקודה שנשלפה: " + p.ToString() + " [GetX()=" + p.GetX() + ", Y=" + p.Y + "]");
+            
+            // עדכון ערכים דרך ה-Setter והמאפיין
+            p.SetX(p.GetX() + 5);
+            p.Y = p.Y + 10;
+            Console.WriteLine("--> לאחר שינוי: " + p.ToString());
+
             temp.Insert(p);
         }
 
@@ -561,7 +597,7 @@ class Program
                     this.initialQueue = [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }];
                 } else if (choice === 'queue-of-queues') {
                     this.dom.codeTextarea.value = `// עבודה עם תור של תורים Queue<Queue<int>>
-class Program
+public class Program
 {
     public static void Main(Queue<Queue<int>> superQ)
     {
@@ -1067,7 +1103,11 @@ class Program
                     if (itemVal && typeof itemVal === 'object' && itemVal.isClass) {
                         node.classList.add('node-complex', 'node-custom-class');
                         const fieldsHtml = Object.entries(itemVal.fields || {})
-                            .map(([k, v]) => `<div class="field-item"><span class="field-key">${k}:</span> <strong class="field-val">${v}</strong></div>`)
+                            .map(([k, v]) => {
+                                const acc = (itemVal.fieldAccess && itemVal.fieldAccess[k]) ? itemVal.fieldAccess[k] : 'public';
+                                const icon = acc === 'private' ? '<span title="private (פרטי)" class="field-access-icon">🔒</span> ' : (acc === 'protected' ? '<span title="protected (מוגן)" class="field-access-icon">🛡️</span> ' : '');
+                                return `<div class="field-item">${icon}<span class="field-key">${k}:</span> <strong class="field-val">${v}</strong></div>`;
+                            })
                             .join('');
 
                         let toStrHtml = '';

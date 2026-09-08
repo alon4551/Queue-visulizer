@@ -163,6 +163,14 @@ class Parser {
         return tok;
     }
 
+    isClassStart() {
+        let i = 0;
+        while (['public', 'private', 'protected', 'internal', 'static', 'sealed', 'abstract'].includes(this.peek(i).value)) {
+            i++;
+        }
+        return this.peek(i).value === 'class';
+    }
+
     parseProgram() {
         this.knownClasses = new Set();
         for (let i = 0; i < this.tokens.length - 1; i++) {
@@ -187,9 +195,25 @@ class Parser {
                 continue;
             }
 
-            if (t.value === 'class') {
-                const cls = this.parseClass();
+            // זיהוי הגדרת מחלקה (כולל מודפיקטורים מקדימים: public, private, static וכו')
+            if (this.isClassStart()) {
+                let classAccess = 'public';
+                while (['public', 'private', 'protected', 'internal', 'static', 'sealed', 'abstract'].includes(this.peek().value)) {
+                    const mod = this.consume().value;
+                    if (mod === 'public' || mod === 'private' || mod === 'protected' || mod === 'internal') {
+                        classAccess = mod;
+                    }
+                }
+                const cls = this.parseClass(classAccess);
                 classes.push(cls);
+
+                // הוספת מחלקות מקוננות אם הוגדרו בתוך המחלקה
+                if (cls.nestedClasses && cls.nestedClasses.length > 0) {
+                    for (const nCls of cls.nestedClasses) {
+                        classes.push(nCls);
+                    }
+                }
+
                 // הוספת פעולות סטטיות (כולל Main) לרשימת הפונקציות הכללית לקריאה ישירה
                 for (const m of cls.methods) {
                     if (m.isStatic || m.name === 'Main') {
@@ -220,23 +244,48 @@ class Parser {
         };
     }
 
-    parseClass() {
+    parseClass(classAccess = 'public') {
         const classTok = this.consume(); // 'class'
         const nameTok = this.expectIdentifier('שם מחלקה');
         const className = nameTok.value;
         this.expect('{');
         const fields = [];
+        const properties = [];
         const constructors = [];
         const methods = [];
+        const nestedClasses = [];
 
         while (this.pos < this.tokens.length && this.peek().value !== '}') {
-            // Modifiers: public, private, protected, static, override, virtual
+            // בדיקה האם זו מחלקה מקוננת (Nested Class)
+            if (this.isClassStart()) {
+                let nestedAccess = 'private';
+                while (['public', 'private', 'protected', 'internal', 'static', 'sealed', 'abstract'].includes(this.peek().value)) {
+                    const mod = this.consume().value;
+                    if (mod === 'public' || mod === 'private' || mod === 'protected' || mod === 'internal') {
+                        nestedAccess = mod;
+                    }
+                }
+                const nestedCls = this.parseClass(nestedAccess);
+                nestedClasses.push(nestedCls);
+                continue;
+            }
+
+            // מודפיקטורים: public, private, protected, static, override, virtual
+            let access = 'private'; // ברירת מחדל ב-C# לחברי מחלקה היא private
+            let hasExplicitAccess = false;
             let isStatic = false;
             let isOverride = false;
-            while (['public', 'private', 'protected', 'static', 'override', 'virtual'].includes(this.peek().value)) {
+            let isVirtual = false;
+
+            while (['public', 'private', 'protected', 'internal', 'static', 'override', 'virtual'].includes(this.peek().value)) {
                 const m = this.consume().value;
+                if (m === 'public' || m === 'private' || m === 'protected' || m === 'internal') {
+                    access = m;
+                    hasExplicitAccess = true;
+                }
                 if (m === 'static') isStatic = true;
                 if (m === 'override') isOverride = true;
+                if (m === 'virtual') isVirtual = true;
             }
 
             // בנאי Constructor: className(params) { ... }
@@ -257,24 +306,99 @@ class Parser {
                     body.push(this.parseStatement());
                 }
                 this.expect('}');
-                constructors.push({ params, body, line: classTok.line });
+                constructors.push({
+                    access: hasExplicitAccess ? access : 'public',
+                    params,
+                    body,
+                    line: classTok.line
+                });
                 continue;
             }
 
-            // טיפול בשדה או מתודה
+            // טיפול בשדה, מאפיין (Property) או מתודה
             const memberType = this.consume().value;
-            const memberName = this.expectIdentifier('שם שדה או פעולה').value;
+            const memberName = this.expectIdentifier('שם שדה, מאפיין או פעולה').value;
 
-            // תמיכה ב-Property: { get; set; }
+            // תמיכה מלאה במאפיין (Property) עם בלוק סוגריים מסולסלים: { get; set; }
             if (this.peek().value === '{') {
-                this.consume();
-                let depth = 1;
-                while (this.pos < this.tokens.length && depth > 0) {
-                    if (this.peek().value === '{') depth++;
-                    else if (this.peek().value === '}') depth--;
-                    this.consume();
+                this.consume(); // '{'
+                let getter = null;
+                let setter = null;
+
+                while (this.peek().value !== '}' && this.pos < this.tokens.length) {
+                    let acc = access;
+                    if (['public', 'private', 'protected', 'internal'].includes(this.peek().value)) {
+                        acc = this.consume().value;
+                    }
+
+                    const accessorType = this.peek().value;
+                    if (accessorType === 'get') {
+                        this.consume(); // 'get'
+                        if (this.match(';')) {
+                            getter = { isAuto: true, access: acc };
+                        } else if (this.match('{')) {
+                            const body = [];
+                            while (this.peek().value !== '}' && this.pos < this.tokens.length) {
+                                body.push(this.parseStatement());
+                            }
+                            this.expect('}');
+                            getter = { isAuto: false, access: acc, body };
+                        } else if (this.match('=>')) {
+                            const expr = this.parseExpression();
+                            this.expect(';');
+                            getter = { isAuto: false, access: acc, body: [{ type: 'ReturnStatement', argument: expr, line: classTok.line }] };
+                        }
+                    } else if (accessorType === 'set') {
+                        this.consume(); // 'set'
+                        if (this.match(';')) {
+                            setter = { isAuto: true, access: acc };
+                        } else if (this.match('{')) {
+                            const body = [];
+                            while (this.peek().value !== '}' && this.pos < this.tokens.length) {
+                                body.push(this.parseStatement());
+                            }
+                            this.expect('}');
+                            setter = { isAuto: false, access: acc, body };
+                        } else if (this.match('=>')) {
+                            const expr = this.parseExpression();
+                            this.expect(';');
+                            setter = { isAuto: false, access: acc, body: [{ type: 'ExpressionStatement', expression: expr, line: classTok.line }] };
+                        }
+                    } else {
+                        this.consume();
+                    }
                 }
-                fields.push({ name: memberName, type: memberType, init: null, line: classTok.line });
+                this.expect('}');
+
+                let init = null;
+                if (this.match('=')) {
+                    init = this.parseExpression();
+                    this.expect(';');
+                }
+
+                properties.push({
+                    name: memberName,
+                    type: memberType,
+                    access,
+                    getter,
+                    setter,
+                    init,
+                    line: classTok.line
+                });
+                continue;
+            } else if (this.match('=>')) {
+                // Expression-bodied property: public int X => this.x;
+                const expr = this.parseExpression();
+                this.expect(';');
+                properties.push({
+                    name: memberName,
+                    type: memberType,
+                    access,
+                    getter: { isAuto: false, access, body: [{ type: 'ReturnStatement', argument: expr, line: classTok.line }] },
+                    setter: null,
+                    init: null,
+                    line: classTok.line
+                });
                 continue;
             }
 
@@ -297,8 +421,10 @@ class Parser {
                 methods.push({
                     name: memberName,
                     returnType: memberType,
+                    access,
                     isStatic,
                     isOverride,
+                    isVirtual,
                     params,
                     body,
                     line: classTok.line
@@ -315,7 +441,7 @@ class Parser {
                 }
                 this.expect(';');
                 for (const fn of fieldNames) {
-                    fields.push({ name: fn, type: memberType, init, line: classTok.line });
+                    fields.push({ name: fn, type: memberType, access, init, line: classTok.line });
                 }
             }
         }
@@ -324,9 +450,12 @@ class Parser {
         return {
             type: 'ClassDeclaration',
             name: className,
+            access: classAccess,
             fields,
+            properties,
             constructors,
             methods,
+            nestedClasses,
             line: classTok.line
         };
     }
@@ -726,10 +855,12 @@ class Parser {
  * מודל מופע מחלקה (Class Instance) עבור מחלקות מותאמות אישית
  */
 class ClassInstance {
-    constructor(className, initialFields = {}) {
+    constructor(className, initialFields = {}, fieldMeta = new Map(), properties = new Map()) {
         this.id = 'obj_' + Math.random().toString(36).substring(2, 9);
         this.className = className;
         this.fields = { ...initialFields };
+        this.fieldMeta = fieldMeta;
+        this.properties = properties;
         this.methods = new Map();
     }
 
@@ -737,6 +868,8 @@ class ClassInstance {
         const copy = new ClassInstance(this.className);
         copy.id = this.id;
         copy.methods = this.methods;
+        copy.fieldMeta = this.fieldMeta;
+        copy.properties = this.properties;
         for (const [k, v] of Object.entries(this.fields)) {
             if (v instanceof QueueInstance) {
                 copy.fields[k] = v.clone();
@@ -1090,6 +1223,75 @@ class RuntimeEnvironment {
         }
     }
 
+    checkAccess(targetObj, access, scope, memberDescription, line) {
+        if (!access || access === 'public') return true;
+
+        // האם ההקשר הנוכחי רץ בתוך אותה מחלקה
+        const currentThis = scope ? scope.get('this') : null;
+        const isSameClass = currentThis && currentThis instanceof ClassInstance && currentThis.className === targetObj.className;
+
+        if (access === 'private') {
+            if (!isSameClass) {
+                throw {
+                    line: line || 1,
+                    message: `❌ שגיאת גישה (כימוס): ${memberDescription} מוגדר כ-private במחלקה '${targetObj.className}' ואינו נגיש מחוץ למחלקה. יש להשתמש ב-Getters/Setters או לשנות ל-public.`
+                };
+            }
+        } else if (access === 'protected') {
+            if (!isSameClass) {
+                throw {
+                    line: line || 1,
+                    message: `❌ שגיאת גישה: ${memberDescription} מוגדר כ-protected במחלקה '${targetObj.className}' ואינו נגיש מחוץ למחלקה.`
+                };
+            }
+        }
+        return true;
+    }
+
+    executePropertyGetter(obj, prop, line) {
+        const getterScope = new Map();
+        getterScope.set('this', obj);
+        this.callStack.push({
+            funcName: `${obj.className}.${prop.name} (get)`,
+            line: line,
+            scope: getterScope
+        });
+        this.recordFrame(line, `קריאה ל-get של המאפיין ${obj.className}.${prop.name}`);
+        let result = 0;
+        if (prop.getter && prop.getter.body) {
+            for (const stmt of prop.getter.body) {
+                const ret = this.executeStatement(stmt, getterScope);
+                if (ret !== undefined) {
+                    result = ret;
+                    break;
+                }
+            }
+        }
+        this.callStack.pop();
+        this.recordFrame(line, `חזרה מ-get של ${obj.className}.${prop.name} עם ערך: ${this.formatVal(result)}`);
+        return result;
+    }
+
+    executePropertySetter(obj, prop, val, line) {
+        const setterScope = new Map();
+        setterScope.set('this', obj);
+        setterScope.set('value', val); // ב-C# המשתנה value מועבר אוטומטית ל-set
+        this.callStack.push({
+            funcName: `${obj.className}.${prop.name} (set)`,
+            line: line,
+            scope: setterScope
+        });
+        this.recordFrame(line, `קריאה ל-set של המאפיין ${obj.className}.${prop.name} עם value=${this.formatVal(val)}`);
+        if (prop.setter && prop.setter.body) {
+            for (const stmt of prop.setter.body) {
+                const ret = this.executeStatement(stmt, setterScope);
+                if (ret !== undefined) break;
+            }
+        }
+        this.callStack.pop();
+        this.recordFrame(line, `סיום set של ${obj.className}.${prop.name}`);
+    }
+
     evaluateExpression(expr, scope) {
         if (!expr) return null;
 
@@ -1110,8 +1312,15 @@ class RuntimeEnvironment {
                 }
                 if (scope.has('this')) {
                     const thisObj = scope.get('this');
-                    if (thisObj instanceof ClassInstance && expr.name in thisObj.fields) {
-                        return thisObj.fields[expr.name];
+                    if (thisObj instanceof ClassInstance) {
+                        if (thisObj.properties && thisObj.properties.has(expr.name)) {
+                            const prop = thisObj.properties.get(expr.name);
+                            if (prop.getter && prop.getter.isAuto) return thisObj.fields[expr.name] !== undefined ? thisObj.fields[expr.name] : 0;
+                            return this.executePropertyGetter(thisObj, prop, expr.line);
+                        }
+                        if (expr.name in thisObj.fields) {
+                            return thisObj.fields[expr.name];
+                        }
                     }
                 }
                 if (this.queues.has(expr.name)) {
@@ -1127,6 +1336,27 @@ class RuntimeEnvironment {
                     throw { line: expr.line, message: `גישה לשדה '${expr.property}' של אובייקט לא מאותחל (null)` };
                 }
                 if (obj instanceof ClassInstance) {
+                    // מאפיין (Property)
+                    if (obj.properties && obj.properties.has(expr.property)) {
+                        const prop = obj.properties.get(expr.property);
+                        if (!prop.getter) {
+                            throw { line: expr.line, message: `❌ שגיאת גישה: למאפיין '${expr.property}' במחלקה '${obj.className}' אין פעולת get (Write-Only).` };
+                        }
+                        this.checkAccess(obj, prop.getter.access || prop.access, scope, `המאפיין '${obj.className}.${expr.property}' (get)`, expr.line);
+                        if (prop.getter.isAuto) {
+                            return obj.fields[expr.property] !== undefined ? obj.fields[expr.property] : 0;
+                        } else {
+                            return this.executePropertyGetter(obj, prop, expr.line);
+                        }
+                    }
+
+                    // שדה רגיל (Field)
+                    if (obj.fieldMeta && obj.fieldMeta.has(expr.property)) {
+                        const meta = obj.fieldMeta.get(expr.property);
+                        this.checkAccess(obj, meta.access || 'private', scope, `השדה '${obj.className}.${expr.property}'`, expr.line);
+                        return obj.fields[expr.property] !== undefined ? obj.fields[expr.property] : 0;
+                    }
+
                     return obj.fields[expr.property] !== undefined ? obj.fields[expr.property] : 0;
                 }
                 if (obj instanceof QueueInstance) {
@@ -1191,9 +1421,61 @@ class RuntimeEnvironment {
                 const rightVal = this.evaluateExpression(expr.right, scope);
 
                 if (targetName) {
-                    let currentVal = scope.has(targetName) ? scope.get(targetName) : 0;
-                    let finalVal = rightVal;
+                    if (scope.has(targetName)) {
+                        let currentVal = scope.get(targetName);
+                        let finalVal = rightVal;
+                        if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                        else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                        else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                        else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
 
+                        scope.set(targetName, finalVal);
+                        if (finalVal instanceof QueueInstance) {
+                            finalVal.name = targetName;
+                            this.queues.set(targetName, finalVal);
+                            this.recordFrame(expr.line, `אתחול והשמת תור חדש בחלון: ${targetName} = new Queue()`, 'idle', false, null, targetName);
+                            return finalVal;
+                        }
+                        this.recordFrame(expr.line, `השמה: ${targetName} = ${this.formatVal(finalVal)}`);
+                        return finalVal;
+                    }
+
+                    if (scope.has('this')) {
+                        const thisObj = scope.get('this');
+                        if (thisObj instanceof ClassInstance) {
+                            if (thisObj.properties && thisObj.properties.has(targetName)) {
+                                const prop = thisObj.properties.get(targetName);
+                                if (!prop.setter) {
+                                    throw { line: expr.line, message: `❌ שגיאת גישה: המאפיין '${targetName}' במחלקה '${thisObj.className}' הוא לקריאה בלבד.` };
+                                }
+                                let currentVal = (prop.getter && prop.getter.isAuto) ? (thisObj.fields[targetName] || 0) : (prop.getter ? this.executePropertyGetter(thisObj, prop, expr.line) : 0);
+                                let finalVal = rightVal;
+                                if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                                else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                                else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                                else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
+
+                                if (prop.setter.isAuto) thisObj.fields[targetName] = finalVal;
+                                else this.executePropertySetter(thisObj, prop, finalVal, expr.line);
+                                return finalVal;
+                            }
+                            if (targetName in thisObj.fields) {
+                                let currentVal = thisObj.fields[targetName] || 0;
+                                let finalVal = rightVal;
+                                if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                                else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                                else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                                else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
+
+                                thisObj.fields[targetName] = finalVal;
+                                this.recordFrame(expr.line, `השמה לשדה: ${targetName} = ${this.formatVal(finalVal)}`);
+                                return finalVal;
+                            }
+                        }
+                    }
+
+                    let currentVal = 0;
+                    let finalVal = rightVal;
                     if (expr.operator === '+=') finalVal = currentVal + rightVal;
                     else if (expr.operator === '-=') finalVal = currentVal - rightVal;
                     else if (expr.operator === '*=') finalVal = currentVal * rightVal;
@@ -1210,24 +1492,61 @@ class RuntimeEnvironment {
                     this.recordFrame(expr.line, `השמה: ${targetName} = ${this.formatVal(finalVal)}`);
                     return finalVal;
                 } else if (targetObj && targetProp) {
-                    let currentVal = (targetObj.fields && targetObj.fields[targetProp] !== undefined)
-                        ? targetObj.fields[targetProp]
-                        : (targetObj[targetProp] !== undefined ? targetObj[targetProp] : 0);
-                    let finalVal = rightVal;
-
-                    if (expr.operator === '+=') finalVal = currentVal + rightVal;
-                    else if (expr.operator === '-=') finalVal = currentVal - rightVal;
-                    else if (expr.operator === '*=') finalVal = currentVal * rightVal;
-                    else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
-
                     if (targetObj instanceof ClassInstance) {
-                        targetObj.fields[targetProp] = finalVal;
-                    } else {
-                        targetObj[targetProp] = finalVal;
-                    }
+                        // מאפיין (Property)
+                        if (targetObj.properties && targetObj.properties.has(targetProp)) {
+                            const prop = targetObj.properties.get(targetProp);
+                            if (!prop.setter) {
+                                throw {
+                                    line: expr.line,
+                                    message: `❌ שגיאת גישה: המאפיין '${targetProp}' במחלקה '${targetObj.className}' הוא לקריאה בלבד (Read-Only) ואין לו פעולת set.`
+                                };
+                            }
+                            this.checkAccess(targetObj, prop.setter.access || prop.access, scope, `המאפיין '${targetObj.className}.${targetProp}' (set)`, expr.line);
+                            let currentVal = (prop.getter && prop.getter.isAuto) ? (targetObj.fields[targetProp] || 0) : (prop.getter ? this.executePropertyGetter(targetObj, prop, expr.line) : 0);
+                            let finalVal = rightVal;
+                            if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                            else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                            else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                            else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
 
-                    this.recordFrame(expr.line, `השמה לשדה: ${targetProp} = ${this.formatVal(finalVal)}`);
-                    return finalVal;
+                            if (prop.setter.isAuto) {
+                                targetObj.fields[targetProp] = finalVal;
+                            } else {
+                                this.executePropertySetter(targetObj, prop, finalVal, expr.line);
+                            }
+                            this.recordFrame(expr.line, `השמה למאפיין: ${targetObj.className}.${targetProp} = ${this.formatVal(finalVal)}`);
+                            return finalVal;
+                        }
+
+                        // שדה רגיל (Field)
+                        if (targetObj.fieldMeta && targetObj.fieldMeta.has(targetProp)) {
+                            const meta = targetObj.fieldMeta.get(targetProp);
+                            this.checkAccess(targetObj, meta.access || 'private', scope, `השדה '${targetObj.className}.${targetProp}'`, expr.line);
+                        }
+
+                        let currentVal = (targetObj.fields && targetObj.fields[targetProp] !== undefined) ? targetObj.fields[targetProp] : 0;
+                        let finalVal = rightVal;
+                        if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                        else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                        else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                        else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
+
+                        targetObj.fields[targetProp] = finalVal;
+                        this.recordFrame(expr.line, `השמה לשדה: ${targetProp} = ${this.formatVal(finalVal)}`);
+                        return finalVal;
+                    } else {
+                        let currentVal = targetObj[targetProp] !== undefined ? targetObj[targetProp] : 0;
+                        let finalVal = rightVal;
+                        if (expr.operator === '+=') finalVal = currentVal + rightVal;
+                        else if (expr.operator === '-=') finalVal = currentVal - rightVal;
+                        else if (expr.operator === '*=') finalVal = currentVal * rightVal;
+                        else if (expr.operator === '/=') finalVal = rightVal !== 0 ? Math.trunc(currentVal / rightVal) : 0;
+
+                        targetObj[targetProp] = finalVal;
+                        this.recordFrame(expr.line, `השמה לשדה: ${targetProp} = ${this.formatVal(finalVal)}`);
+                        return finalVal;
+                    }
                 }
                 break;
             }
@@ -1244,13 +1563,30 @@ class RuntimeEnvironment {
                 } else if (expr.argument.type === 'MemberExpression') {
                     const targetObj = this.evaluateExpression(expr.argument.object, scope);
                     const prop = expr.argument.property;
-                    let currentVal = (targetObj && targetObj.fields && targetObj.fields[prop] !== undefined)
-                        ? targetObj.fields[prop] : 0;
-                    if (expr.operator === '++') currentVal++;
-                    else if (expr.operator === '--') currentVal--;
-                    if (targetObj instanceof ClassInstance) targetObj.fields[prop] = currentVal;
-                    this.recordFrame(expr.line, `קידום שדה: ${prop} הפך ל-${currentVal}`);
-                    return currentVal;
+                    if (targetObj instanceof ClassInstance) {
+                        let currentVal = 0;
+                        if (targetObj.properties && targetObj.properties.has(prop)) {
+                            const p = targetObj.properties.get(prop);
+                            this.checkAccess(targetObj, p.getter ? (p.getter.access || p.access) : p.access, scope, `המאפיין '${targetObj.className}.${prop}' (get)`, expr.line);
+                            currentVal = (p.getter && p.getter.isAuto) ? (targetObj.fields[prop] || 0) : this.executePropertyGetter(targetObj, p, expr.line);
+                            const updatedVal = expr.operator === '++' ? currentVal + 1 : currentVal - 1;
+                            this.checkAccess(targetObj, p.setter ? (p.setter.access || p.access) : p.access, scope, `המאפיין '${targetObj.className}.${prop}' (set)`, expr.line);
+                            if (p.setter && p.setter.isAuto) targetObj.fields[prop] = updatedVal;
+                            else if (p.setter) this.executePropertySetter(targetObj, p, updatedVal, expr.line);
+                            this.recordFrame(expr.line, `קידום מאפיין: ${prop} הפך ל-${updatedVal}`);
+                            return updatedVal;
+                        } else {
+                            if (targetObj.fieldMeta && targetObj.fieldMeta.has(prop)) {
+                                const meta = targetObj.fieldMeta.get(prop);
+                                this.checkAccess(targetObj, meta.access || 'private', scope, `השדה '${targetObj.className}.${prop}'`, expr.line);
+                            }
+                            currentVal = (targetObj.fields && targetObj.fields[prop] !== undefined) ? targetObj.fields[prop] : 0;
+                            const updatedVal = expr.operator === '++' ? currentVal + 1 : currentVal - 1;
+                            targetObj.fields[prop] = updatedVal;
+                            this.recordFrame(expr.line, `קידום שדה: ${prop} הפך ל-${updatedVal}`);
+                            return updatedVal;
+                        }
+                    }
                 }
                 break;
             }
@@ -1268,7 +1604,20 @@ class RuntimeEnvironment {
 
                 if (this.classes.has(expr.className)) {
                     const classDecl = this.classes.get(expr.className);
-                    const instance = new ClassInstance(classDecl.name);
+                    const fieldMeta = new Map();
+                    const propMeta = new Map();
+
+                    for (const f of classDecl.fields) {
+                        fieldMeta.set(f.name, { access: f.access || 'private', type: f.type });
+                    }
+
+                    if (classDecl.properties) {
+                        for (const p of classDecl.properties) {
+                            propMeta.set(p.name, p);
+                        }
+                    }
+
+                    const instance = new ClassInstance(classDecl.name, {}, fieldMeta, propMeta);
 
                     for (const f of classDecl.fields) {
                         let defaultVal = 0;
@@ -1282,6 +1631,22 @@ class RuntimeEnvironment {
                         instance.fields[f.name] = defaultVal;
                     }
 
+                    if (classDecl.properties) {
+                        for (const p of classDecl.properties) {
+                            if (p.getter && p.getter.isAuto) {
+                                let defaultVal = 0;
+                                if (p.type === 'string') defaultVal = '';
+                                else if (p.type === 'bool') defaultVal = false;
+                                else if (p.type === 'char') defaultVal = ' ';
+                                else if (p.type.startsWith('Queue')) defaultVal = null;
+                                if (p.init) {
+                                    defaultVal = this.evaluateExpression(p.init, new Map());
+                                }
+                                instance.fields[p.name] = defaultVal;
+                            }
+                        }
+                    }
+
                     for (const m of classDecl.methods) {
                         instance.methods.set(m.name, m);
                     }
@@ -1293,6 +1658,7 @@ class RuntimeEnvironment {
                     }
 
                     if (ctor) {
+                        this.checkAccess(instance, ctor.access || 'public', scope, `הבנאי של '${classDecl.name}'`, expr.line);
                         const ctorScope = new Map();
                         ctorScope.set('this', instance);
                         ctor.params.forEach((param, idx) => {
@@ -1355,6 +1721,7 @@ class RuntimeEnvironment {
                     if (expr.method === 'ToString') {
                         if (obj.methods.has('ToString')) {
                             const methodDecl = obj.methods.get('ToString');
+                            this.checkAccess(obj, methodDecl.access || 'public', scope, `הפעולה '${obj.className}.ToString()'`, expr.line);
                             const mScope = new Map();
                             mScope.set('this', obj);
                             this.callStack.push({
@@ -1378,6 +1745,7 @@ class RuntimeEnvironment {
 
                     if (obj.methods.has(expr.method)) {
                         const methodDecl = obj.methods.get(expr.method);
+                        this.checkAccess(obj, methodDecl.access || 'public', scope, `הפעולה '${obj.className}.${expr.method}()'`, expr.line);
                         const evalArgs = (expr.arguments || []).map(arg => this.evaluateExpression(arg, scope));
                         const methodScope = new Map();
                         methodScope.set('this', obj);
@@ -1488,6 +1856,7 @@ class RuntimeEnvironment {
             }
             if (item instanceof ClassInstance) {
                 const snapFields = {};
+                const snapMeta = {};
                 for (const [k, v] of Object.entries(item.fields)) {
                     if (v instanceof QueueInstance) {
                         snapFields[k] = `Queue [${v.items.length}]`;
@@ -1496,11 +1865,19 @@ class RuntimeEnvironment {
                     } else {
                         snapFields[k] = v;
                     }
+                    if (item.fieldMeta && item.fieldMeta.has(k)) {
+                        snapMeta[k] = item.fieldMeta.get(k).access;
+                    } else if (item.properties && item.properties.has(k)) {
+                        snapMeta[k] = item.properties.get(k).access;
+                    } else {
+                        snapMeta[k] = 'public';
+                    }
                 }
                 return {
                     isClass: true,
                     className: item.className,
                     fields: snapFields,
+                    fieldAccess: snapMeta,
                     toStringVal: this.formatVal(item)
                 };
             }

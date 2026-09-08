@@ -164,17 +164,92 @@ class AutocompleteEngine {
                 keywords: ['while', 'while (!q', 'loop', 'scan', 'whi']
             },
             {
+                id: 'class-program',
+                label: 'public class Program { ... }',
+                insertText: `public class Program
+{
+    public static void Main(Queue<int> q)
+    {
+        
+    }
+}`,
+                cursorOffset: 0,
+                category: 'snippet',
+                typeBadge: 'תוכנית ראשית',
+                signature: 'public class Program',
+                params: 'מחלקה עוטפת ופעולת Main ראשית.',
+                returns: 'מבנה תוכנית תקני ב-C#.',
+                desc: 'המבנה התקני של תוכנית C# עם מחלקת Program ופעולת כניסה ראשית Main המקבלת את התור q כפרמטר.',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['program', 'class program', 'main', 'prog', 'public class program']
+            },
+            {
+                id: 'property-auto',
+                label: 'public int X { get; set; }',
+                insertText: 'public int X { get; set; }',
+                cursorOffset: 0,
+                category: 'snippet',
+                typeBadge: 'מאפיין (Property)',
+                signature: 'public int X { get; set; }',
+                params: 'הגדרת מאפיין אוטומטי.',
+                returns: 'Getter ו-Setter אוטומטיים.',
+                desc: 'הגדרת מאפיין אוטומטי ב-C# (Auto-Property) המספק פעולות אחזור (get) ועדכון (set) מקוצרות עם כימוס מלא.',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['prop', 'property', 'get set', 'get; set;', 'getter setter']
+            },
+            {
+                id: 'getter-setter-methods',
+                label: 'GetX() / SetX(value)',
+                insertText: `public int GetX()
+    {
+        return this.x;
+    }
+
+    public void SetX(int value)
+    {
+        this.x = value;
+    }`,
+                cursorOffset: 0,
+                category: 'snippet',
+                typeBadge: 'Get / Set',
+                signature: 'public int GetX() / public void SetX(int value)',
+                params: 'פעולות גישה ועדכון לשדה פרטי.',
+                returns: 'קריאה וכתיבה לשדה פרטי.',
+                desc: 'פעולות Get ו-Set סטנדרטיות המאפשרות גישה מבוקרת (כימוס) לשדות private במחלקה.',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['getter', 'setter', 'getx', 'setx', 'get', 'set']
+            },
+            {
                 id: 'class-point',
                 label: 'class Point { ... }',
-                insertText: `class Point
+                insertText: `public class Point
 {
-    public int x;
-    public int y;
+    private int x;
+    private int y;
 
     public Point(int x, int y)
     {
         this.x = x;
         this.y = y;
+    }
+
+    public int GetX()
+    {
+        return this.x;
+    }
+
+    public void SetX(int value)
+    {
+        this.x = value;
+    }
+
+    public int Y
+    {
+        get { return this.y; }
+        set { this.y = value; }
     }
 
     public override string ToString()
@@ -184,14 +259,14 @@ class AutocompleteEngine {
 }`,
                 cursorOffset: 0,
                 category: 'class',
-                typeBadge: 'מחלקה',
-                signature: 'class Point',
-                params: 'שדות x, y, בנאי ודריסת ToString().',
-                returns: 'הגדרת מחלקה מלאה.',
-                desc: 'תבנית להגדרת מחלקה מותאמת אישית Point לשימוש בתוך Queue<Point>. כוללת שדות, בנאי עם פרמטרים ודריסת ToString() להדפסה קריאה.',
+                typeBadge: 'מחלקה מלאה',
+                signature: 'public class Point',
+                params: 'שדות private, בנאי, Get/Set, מאפיין Y ו-ToString().',
+                returns: 'הגדרת מחלקה עם כימוס מלא.',
+                desc: 'תבנית להגדרת מחלקה מותאמת אישית Point לשימוש בתוך Queue<Point>. כוללת שדות פרטיים (private), בנאי, פעולות Get/Set, מאפיין ודריסת ToString().',
                 triggersOnDot: false,
                 triggersStandalone: true,
-                keywords: ['class', 'point', 'custom class', 'cls']
+                keywords: ['class', 'point', 'custom class', 'cls', 'private', 'public', 'protected']
             },
             {
                 id: 'new-queue-point',
