@@ -26,22 +26,57 @@
     <!-- גוף המערכת -->
     <main class="main-container">
         
-        <!-- צד ימין בממשק RTL: במת התורים וכרטיסיות מעקב (Visual Panel) -->
+        <!-- צד ימין בממשק RTL: במת התורים, אתחול קלט וכרטיסיות מעקב ופלט (Visual Panel) -->
         <section class="visual-panel">
             
-            <!-- במת מסלולי התורים (Queues Stage) -->
-            <div class="card queue-stage-card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <span>📦</span>
-                        <span>מבנה הנתונים תור (FIFO Queue)</span>
+            <!-- במת מסלולי התורים ואתחול קלט (Tabs: תצוגת תור / אתחול קלט) -->
+            <div class="card queue-stage-card" id="queue-stage-card">
+                <div class="card-header tabs-header">
+                    <div class="tabs-nav">
+                        <button type="button" class="tab-btn active" id="tab-btn-queue-view" data-tab="queue-view">
+                            <span>📦</span>
+                            <span>תצוגת התור (Queue View)</span>
+                        </button>
+                        <button type="button" class="tab-btn" id="tab-btn-queue-init" data-tab="queue-init">
+                            <span>📥</span>
+                            <span>אתחול קלט התור (Init Queue)</span>
+                            <span class="badge badge-active" id="queue-init-badge">קלט פעיל ל-q</span>
+                        </button>
                     </div>
-                    <span class="badge">Head = ראש (שליפה) | Tail = סוף (הכנסה)</span>
+                    <div class="card-header-actions">
+                        <span class="badge badge-fifo" id="queue-stage-hint-badge">Head = ראש (שליפה) | Tail = סוף (הכנסה)</span>
+                        <button type="button" class="btn-icon-toggle" id="btn-toggle-init-queue" title="מזער / הרחב">▾</button>
+                    </div>
                 </div>
-                <div id="queues-stage" class="queues-stage"></div>
+                <div class="tab-content-container" id="queue-tabs-content">
+                    <!-- לשונית 1: תצוגת התור החזותית -->
+                    <div class="tab-pane active" id="tab-pane-queue-view">
+                        <div id="queues-stage" class="queues-stage"></div>
+                    </div>
+                    <!-- לשונית 2: אתחול התור והגדרת קלט -->
+                    <div class="tab-pane" id="tab-pane-queue-init">
+                        <div class="queue-init-pane-content" id="queue-init-card">
+                            <div class="queue-init-pane-header">
+                                <div class="queue-init-title-box">
+                                    <span>📥</span>
+                                    <span id="queue-init-title">משתנה התור ההתחלתי: <code>Queue&lt;int&gt; q</code></span>
+                                </div>
+                                <p class="queue-init-desc">הגדרת ערכי התור ההתחלתי שיועברו כארגומנט לפעולה <code>Main</code> בעת תחילת ההרצה.</p>
+                            </div>
+                            <div class="queue-init-body" id="queue-init-body">
+                                <div class="queue-init-input-row" id="queue-init-row">
+                                    <input type="text" id="initial-queue-input" class="input-text" placeholder="לדוגמה: 14, 7, 25, 9, 31" value="14, 7, 25, 9, 31">
+                                    <button id="btn-set-queue" class="btn btn-primary">עדכן תור</button>
+                                    <button id="btn-random-queue" class="btn btn-secondary">🎲 הגרל ערכים</button>
+                                </div>
+                                <p class="queue-init-hint" id="queue-init-hint">ערכי התור ההתחלתי מועברים ישירות לפעולה <code>Main(Queue&lt;int&gt; q)</code> בעורך.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- כרטיסיות מעקב נתונים (Tabs: Variables Watch & Call Stack) -->
+            <!-- כרטיסיות מעקב נתונים, מחסנית קריאות ומסוף פלט (Tabs: Variables, Call Stack, Console) -->
             <div class="card inspection-tabs-card" id="inspection-card">
                 <div class="card-header tabs-header">
                     <div class="tabs-nav">
@@ -53,11 +88,18 @@
                             <span>📚</span>
                             <span>מחסנית קריאות (Call Stack)</span>
                         </button>
+                        <button type="button" class="tab-btn" id="tab-btn-console" data-tab="console">
+                            <span>📟</span>
+                            <span>מסוף פלט (Console)</span>
+                            <span class="badge console-badge" id="console-count-badge">0 שורות</span>
+                        </button>
                     </div>
-                    <button type="button" class="btn-icon-toggle" id="btn-toggle-tabs" title="מזער / הרחב כרטיסיות">▾</button>
+                    <div class="card-header-actions">
+                        <button type="button" class="btn-icon-toggle" id="btn-toggle-tabs" title="מזער / הרחב כרטיסיות">▾</button>
+                    </div>
                 </div>
                 <div class="tab-content-container" id="tabs-content-body">
-                    <!-- Variables Tab Pane -->
+                    <!-- לשונית 1: מעקב משתנים -->
                     <div class="tab-pane active" id="tab-pane-vars">
                         <div class="table-scroll-wrapper">
                             <table class="watch-table">
@@ -71,41 +113,27 @@
                             </table>
                         </div>
                     </div>
-                    <!-- Call Stack Tab Pane -->
+                    <!-- לשונית 2: מחסנית קריאות -->
                     <div class="tab-pane" id="tab-pane-stack">
                         <div id="call-stack-list" class="call-stack-list"></div>
+                    </div>
+                    <!-- לשונית 3: מסוף פלט -->
+                    <div class="tab-pane" id="tab-pane-console">
+                        <div class="console-card-pane" id="console-card">
+                            <div class="console-body" id="console-output">
+                                <div class="console-empty">הפלט של Console.WriteLine יופיע כאן...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
         </section>
 
-        <!-- צד שמאל בממשק RTL: עמודת העורך, הבקרה והפלט (Editor & Control Column) -->
+        <!-- צד שמאל בממשק RTL: עמודת העורך והבקרה (Editor & Control Column) -->
         <div class="editor-column">
             
-            <!-- 1. משתנה התור ההתחלתי (עם אפשרות מזעור) -->
-            <section class="card queue-init-card" id="queue-init-card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <span>📥</span>
-                        <span id="queue-init-title">משתנה התור ההתחלתי: <code>Queue&lt;int&gt; q</code></span>
-                    </div>
-                    <div class="card-header-actions">
-                        <span class="badge badge-active" id="queue-init-badge">קלט פעיל ל-q</span>
-                        <button type="button" class="btn-icon-toggle" id="btn-toggle-init-queue" title="מזער / הרחב">▾</button>
-                    </div>
-                </div>
-                <div class="queue-init-body" id="queue-init-body">
-                    <div class="queue-init-input-row" id="queue-init-row">
-                        <input type="text" id="initial-queue-input" class="input-text" placeholder="לדוגמה: 14, 7, 25, 9, 31" value="14, 7, 25, 9, 31">
-                        <button id="btn-set-queue" class="btn btn-primary">עדכן תור</button>
-                        <button id="btn-random-queue" class="btn btn-secondary">🎲 הגרל ערכים</button>
-                    </div>
-                    <p class="queue-init-hint" id="queue-init-hint">ערכי התור ההתחלתי מועברים ישירות לפעולה <code>Main(Queue&lt;int&gt; q)</code> בעורך מטה.</p>
-                </div>
-            </section>
-
-            <!-- 2. סרגל בקרת הרצה (מועבר מעל העורך עם אפשרות מזעור) -->
+            <!-- 1. סרגל בקרת הרצה -->
             <div class="card controls-card" id="controls-card">
                 <div class="card-header controls-header">
                     <div class="card-title">
@@ -131,7 +159,7 @@
                 </div>
             </div>
 
-            <!-- 3. עורך קוד C# ומפרש פונקציות (גמיש ונגלל) -->
+            <!-- 2. עורך קוד C# ומפרש פונקציות (גמיש ונגלל) -->
             <section class="card editor-panel" id="editor-panel">
                 <div class="card-header">
                     <div class="card-title">
@@ -166,30 +194,13 @@
                 </div>
             </section>
 
-            <!-- 4. סרגל משוב פדגוגי בעברית (צמוד לחלון הפלט עם אפשרות מזעור) -->
+            <!-- 3. סרגל משוב פדגוגי בעברית -->
             <div id="status-banner" class="status-banner info">
                 <div class="status-content">
                     <span id="status-icon" class="status-icon">⚡</span>
                     <span id="status-text">מוכן להרצה</span>
                 </div>
                 <button type="button" class="btn-icon-toggle" id="btn-toggle-status" title="מזער / הרחב">▾</button>
-            </div>
-
-            <!-- 5. מסוף פלט C# (ממוקם ישירות תחת העורך) -->
-            <div class="card console-card" id="console-card">
-                <div class="card-header">
-                    <div class="card-title">
-                        <span>📟</span>
-                        <span>מסוף פלט (Console Output)</span>
-                    </div>
-                    <div class="card-header-actions">
-                        <span class="badge console-badge" id="console-count-badge">0 שורות</span>
-                        <button type="button" class="btn-icon-toggle" id="btn-toggle-console" title="מזער / הרחב">▾</button>
-                    </div>
-                </div>
-                <div class="console-body" id="console-output">
-                    <div class="console-empty">הפלט של Console.WriteLine יופיע כאן...</div>
-                </div>
             </div>
 
         </div>

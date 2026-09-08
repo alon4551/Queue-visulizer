@@ -72,10 +72,18 @@ class QueueVisualizerApp {
         this.dom.btnToggleConsole = document.getElementById('btn-toggle-console');
         this.dom.btnToggleTabs = document.getElementById('btn-toggle-tabs');
 
+        this.dom.queueStageCard = document.getElementById('queue-stage-card');
+        this.dom.tabBtnQueueView = document.getElementById('tab-btn-queue-view');
+        this.dom.tabBtnQueueInit = document.getElementById('tab-btn-queue-init');
+        this.dom.tabPaneQueueView = document.getElementById('tab-pane-queue-view');
+        this.dom.tabPaneQueueInit = document.getElementById('tab-pane-queue-init');
+
         this.dom.tabBtnVars = document.getElementById('tab-btn-vars');
         this.dom.tabBtnStack = document.getElementById('tab-btn-stack');
+        this.dom.tabBtnConsole = document.getElementById('tab-btn-console');
         this.dom.tabPaneVars = document.getElementById('tab-pane-vars');
         this.dom.tabPaneStack = document.getElementById('tab-pane-stack');
+        this.dom.tabPaneConsole = document.getElementById('tab-pane-console');
 
         this.dom.exampleCodeSelect = document.getElementById('example-code-select');
         this.dom.autocompletePopup = document.getElementById('autocomplete-popup');
@@ -96,11 +104,13 @@ class QueueVisualizerApp {
         // עדכון תור התחלתי ידני
         this.dom.btnSetQueue.addEventListener('click', () => {
             this.updateQueueFromInput();
+            if (this.switchQueueTab) this.switchQueueTab('queue-view');
         });
 
         this.dom.initialQueueInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 this.updateQueueFromInput();
+                if (this.switchQueueTab) this.switchQueueTab('queue-view');
             }
         });
 
@@ -110,6 +120,7 @@ class QueueVisualizerApp {
             this.initialQueue = randItems;
             this.dom.initialQueueInput.value = this.formatQueueInputValue(randItems, this.initialQueueType);
             this.recompile();
+            if (this.switchQueueTab) this.switchQueueTab('queue-view');
         });
 
         // עריכת קוד ידנית
@@ -277,8 +288,18 @@ class QueueVisualizerApp {
         });
 
         // כפתורי שליטה
-        this.dom.btnPlay.addEventListener('click', () => this.togglePlay());
-        this.dom.btnStepNext.addEventListener('click', () => this.stepNext());
+        this.dom.btnPlay.addEventListener('click', () => {
+            if (this.dom.tabPaneQueueInit && this.dom.tabPaneQueueInit.classList.contains('active')) {
+                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+            }
+            this.togglePlay();
+        });
+        this.dom.btnStepNext.addEventListener('click', () => {
+            if (this.dom.tabPaneQueueInit && this.dom.tabPaneQueueInit.classList.contains('active')) {
+                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+            }
+            this.stepNext();
+        });
         this.dom.btnStepPrev.addEventListener('click', () => this.stepPrev());
         this.dom.btnReset.addEventListener('click', () => this.reset());
 
@@ -309,26 +330,60 @@ class QueueVisualizerApp {
             }
         });
 
-        // מעבר בין כרטיסיות (Tabs: מעקב משתנים / מחסנית קריאות)
-        const switchTab = (tabName) => {
-            if (tabName === 'vars') {
-                if (this.dom.tabBtnVars) this.dom.tabBtnVars.classList.add('active');
-                if (this.dom.tabBtnStack) this.dom.tabBtnStack.classList.remove('active');
-                if (this.dom.tabPaneVars) this.dom.tabPaneVars.classList.add('active');
-                if (this.dom.tabPaneStack) this.dom.tabPaneStack.classList.remove('active');
-            } else if (tabName === 'stack') {
-                if (this.dom.tabBtnStack) this.dom.tabBtnStack.classList.add('active');
-                if (this.dom.tabBtnVars) this.dom.tabBtnVars.classList.remove('active');
-                if (this.dom.tabPaneStack) this.dom.tabPaneStack.classList.add('active');
-                if (this.dom.tabPaneVars) this.dom.tabPaneVars.classList.remove('active');
+        // מעבר בין כרטיסיות במת התור (Queue View vs Init Queue)
+        const switchQueueTab = (tabName) => {
+            if (tabName === 'queue-view') {
+                if (this.dom.tabBtnQueueView) this.dom.tabBtnQueueView.classList.add('active');
+                if (this.dom.tabBtnQueueInit) this.dom.tabBtnQueueInit.classList.remove('active');
+                if (this.dom.tabPaneQueueView) this.dom.tabPaneQueueView.classList.add('active');
+                if (this.dom.tabPaneQueueInit) this.dom.tabPaneQueueInit.classList.remove('active');
+            } else if (tabName === 'queue-init') {
+                if (this.dom.tabBtnQueueInit) this.dom.tabBtnQueueInit.classList.add('active');
+                if (this.dom.tabBtnQueueView) this.dom.tabBtnQueueView.classList.remove('active');
+                if (this.dom.tabPaneQueueInit) this.dom.tabPaneQueueInit.classList.add('active');
+                if (this.dom.tabPaneQueueView) this.dom.tabPaneQueueView.classList.remove('active');
             }
         };
+        this.switchQueueTab = switchQueueTab;
+
+        if (this.dom.tabBtnQueueView) {
+            this.dom.tabBtnQueueView.addEventListener('click', () => switchQueueTab('queue-view'));
+        }
+        if (this.dom.tabBtnQueueInit) {
+            this.dom.tabBtnQueueInit.addEventListener('click', () => switchQueueTab('queue-init'));
+        }
+
+        // מעבר בין כרטיסיות מעקב ופלט (Tabs: מעקב משתנים / מחסנית קריאות / מסוף פלט)
+        const switchInspectionTab = (tabName) => {
+            const tabs = [
+                { name: 'vars', btn: this.dom.tabBtnVars, pane: this.dom.tabPaneVars },
+                { name: 'stack', btn: this.dom.tabBtnStack, pane: this.dom.tabPaneStack },
+                { name: 'console', btn: this.dom.tabBtnConsole, pane: this.dom.tabPaneConsole }
+            ];
+
+            tabs.forEach(t => {
+                if (t.name === tabName) {
+                    if (t.btn) {
+                        t.btn.classList.add('active');
+                        t.btn.classList.remove('tab-has-new');
+                    }
+                    if (t.pane) t.pane.classList.add('active');
+                } else {
+                    if (t.btn) t.btn.classList.remove('active');
+                    if (t.pane) t.pane.classList.remove('active');
+                }
+            });
+        };
+        this.switchInspectionTab = switchInspectionTab;
 
         if (this.dom.tabBtnVars) {
-            this.dom.tabBtnVars.addEventListener('click', () => switchTab('vars'));
+            this.dom.tabBtnVars.addEventListener('click', () => switchInspectionTab('vars'));
         }
         if (this.dom.tabBtnStack) {
-            this.dom.tabBtnStack.addEventListener('click', () => switchTab('stack'));
+            this.dom.tabBtnStack.addEventListener('click', () => switchInspectionTab('stack'));
+        }
+        if (this.dom.tabBtnConsole) {
+            this.dom.tabBtnConsole.addEventListener('click', () => switchInspectionTab('console'));
         }
 
         // פקדי מזעור / הרחבה (Minimize / Expand toggles)
@@ -340,10 +395,9 @@ class QueueVisualizerApp {
             });
         };
 
-        setupMinimizeToggle(this.dom.btnToggleInitQueue, this.dom.queueInitCard);
+        setupMinimizeToggle(this.dom.btnToggleInitQueue, this.dom.queueStageCard || this.dom.queueInitCard);
         setupMinimizeToggle(this.dom.btnToggleControls, this.dom.controlsCard);
         setupMinimizeToggle(this.dom.btnToggleStatus, this.dom.statusBanner);
-        setupMinimizeToggle(this.dom.btnToggleConsole, this.dom.consoleCard);
         setupMinimizeToggle(this.dom.btnToggleTabs, this.dom.inspectionCard);
 
         // טעינת דוגמאות קוד מוכנות (Presets)
@@ -542,6 +596,7 @@ class Program
                 }
                 this.updateLineNumbers();
                 this.recompile();
+                if (this.switchQueueTab) this.switchQueueTab('queue-view');
                 e.target.value = '';
             });
         }
@@ -1121,6 +1176,13 @@ class Program
         const outputs = consoleOutputs || [];
         if (this.dom.consoleCountBadge) {
             this.dom.consoleCountBadge.textContent = outputs.length === 1 ? 'שורה 1' : `${outputs.length} שורות`;
+        }
+
+        // אם יש פלט חדש והלשונית אינה פתוחה כרגע - הדלקת חיווי התראה עדין בלשונית
+        if (outputs.length > 0 && this.dom.tabPaneConsole && !this.dom.tabPaneConsole.classList.contains('active')) {
+            if (this.dom.tabBtnConsole) {
+                this.dom.tabBtnConsole.classList.add('tab-has-new');
+            }
         }
 
         if (outputs.length === 0) {
