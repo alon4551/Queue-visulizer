@@ -345,6 +345,7 @@ class QueueVisualizerApp {
             }
         };
         this.switchQueueTab = switchQueueTab;
+        window.switchQueueTab = switchQueueTab;
 
         if (this.dom.tabBtnQueueView) {
             this.dom.tabBtnQueueView.addEventListener('click', () => switchQueueTab('queue-view'));
@@ -375,6 +376,7 @@ class QueueVisualizerApp {
             });
         };
         this.switchInspectionTab = switchInspectionTab;
+        window.switchInspectionTab = switchInspectionTab;
 
         if (this.dom.tabBtnVars) {
             this.dom.tabBtnVars.addEventListener('click', () => switchInspectionTab('vars'));
@@ -385,6 +387,20 @@ class QueueVisualizerApp {
         if (this.dom.tabBtnConsole) {
             this.dom.tabBtnConsole.addEventListener('click', () => switchInspectionTab('console'));
         }
+
+        // האזנה מואצלת ללחיצות על כרטיסיות (Event Delegation)
+        document.addEventListener('click', (e) => {
+            const tabBtn = e.target.closest ? e.target.closest('.tab-btn') : null;
+            if (!tabBtn) return;
+            const tabName = tabBtn.getAttribute('data-tab');
+            if (!tabName) return;
+
+            if (tabName === 'queue-view' || tabName === 'queue-init') {
+                switchQueueTab(tabName);
+            } else if (tabName === 'vars' || tabName === 'stack' || tabName === 'console') {
+                switchInspectionTab(tabName);
+            }
+        });
 
         // פקדי מזעור / הרחבה (Minimize / Expand toggles)
         const setupMinimizeToggle = (btn, targetEl) => {

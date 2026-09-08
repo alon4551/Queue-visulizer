@@ -770,17 +770,18 @@ body {
 }
 
 .queue-stage-card .tab-pane {
+    display: none !important;
     flex: 1;
     min-height: 0;
 }
 
 .queue-stage-card .tab-pane.active {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
 }
 
 #tab-pane-queue-init {
-    display: none;
+    display: none !important;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -788,7 +789,7 @@ body {
 }
 
 #tab-pane-queue-init.active {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
 }
 
@@ -1468,14 +1469,14 @@ body {
 }
 
 .tab-pane {
-    display: none;
+    display: none !important;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
 }
 
 .tab-pane.active {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
 }
 
@@ -1557,7 +1558,7 @@ body {
 
 /* מסוף פלט בלשונית (Console Output Tab) */
 #tab-pane-console {
-    display: none;
+    display: none !important;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -1565,7 +1566,7 @@ body {
 }
 
 #tab-pane-console.active {
-    display: flex;
+    display: flex !important;
     flex-direction: column;
 }
 

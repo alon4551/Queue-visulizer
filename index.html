@@ -4,8 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מאייר ומפרש תור ב-C# | תיכון מקיף דוד טוביהו</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2.2">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
+    <script>
+        // בקר מעבר כרטיסיות גלובלי מיידי
+        function switchQueueTab(tabName) {
+            var isInit = (tabName === 'queue-init');
+            var btnView = document.getElementById('tab-btn-queue-view');
+            var btnInit = document.getElementById('tab-btn-queue-init');
+            var paneView = document.getElementById('tab-pane-queue-view');
+            var paneInit = document.getElementById('tab-pane-queue-init');
+
+            if (btnView) btnView.classList.toggle('active', !isInit);
+            if (btnInit) btnInit.classList.toggle('active', isInit);
+            if (paneView) paneView.classList.toggle('active', !isInit);
+            if (paneInit) paneInit.classList.toggle('active', isInit);
+
+            if (window.app && typeof window.app.switchQueueTab === 'function') {
+                window.app.switchQueueTab(tabName);
+            }
+        }
+
+        function switchInspectionTab(tabName) {
+            var tabs = ['vars', 'stack', 'console'];
+            tabs.forEach(function(name) {
+                var btn = document.getElementById('tab-btn-' + name);
+                var pane = document.getElementById('tab-pane-' + name);
+                var isActive = (name === tabName);
+                if (btn) {
+                    btn.classList.toggle('active', isActive);
+                    if (isActive && name === 'console') {
+                        btn.classList.remove('tab-has-new');
+                    }
+                }
+                if (pane) {
+                    pane.classList.toggle('active', isActive);
+                }
+            });
+
+            if (window.app && typeof window.app.switchInspectionTab === 'function') {
+                window.app.switchInspectionTab(tabName);
+            }
+        }
+        window.switchQueueTab = switchQueueTab;
+        window.switchInspectionTab = switchInspectionTab;
+    </script>
 </head>
 <body>
 
@@ -33,11 +76,11 @@
             <div class="card queue-stage-card" id="queue-stage-card">
                 <div class="card-header tabs-header">
                     <div class="tabs-nav">
-                        <button type="button" class="tab-btn active" id="tab-btn-queue-view" data-tab="queue-view">
+                        <button type="button" class="tab-btn active" id="tab-btn-queue-view" data-tab="queue-view" onclick="switchQueueTab('queue-view')">
                             <span>📦</span>
                             <span>תצוגת התור (Queue View)</span>
                         </button>
-                        <button type="button" class="tab-btn" id="tab-btn-queue-init" data-tab="queue-init">
+                        <button type="button" class="tab-btn" id="tab-btn-queue-init" data-tab="queue-init" onclick="switchQueueTab('queue-init')">
                             <span>📥</span>
                             <span>אתחול קלט התור (Init Queue)</span>
                             <span class="badge badge-active" id="queue-init-badge">קלט פעיל ל-q</span>
@@ -80,15 +123,15 @@
             <div class="card inspection-tabs-card" id="inspection-card">
                 <div class="card-header tabs-header">
                     <div class="tabs-nav">
-                        <button type="button" class="tab-btn active" id="tab-btn-vars" data-tab="vars">
+                        <button type="button" class="tab-btn active" id="tab-btn-vars" data-tab="vars" onclick="switchInspectionTab('vars')">
                             <span>🔍</span>
                             <span>מעקב משתנים (Variables)</span>
                         </button>
-                        <button type="button" class="tab-btn" id="tab-btn-stack" data-tab="stack">
+                        <button type="button" class="tab-btn" id="tab-btn-stack" data-tab="stack" onclick="switchInspectionTab('stack')">
                             <span>📚</span>
                             <span>מחסנית קריאות (Call Stack)</span>
                         </button>
-                        <button type="button" class="tab-btn" id="tab-btn-console" data-tab="console">
+                        <button type="button" class="tab-btn" id="tab-btn-console" data-tab="console" onclick="switchInspectionTab('console')">
                             <span>📟</span>
                             <span>מסוף פלט (Console)</span>
                             <span class="badge console-badge" id="console-count-badge">0 שורות</span>
@@ -213,9 +256,9 @@
     </footer>
 
     <!-- סקריפטים -->
-    <script src="js/csharp_queue_interpreter.js"></script>
-    <script src="js/autocomplete.js"></script>
-    <script src="js/visualizer.js"></script>
+    <script src="js/csharp_queue_interpreter.js?v=2.2"></script>
+    <script src="js/autocomplete.js?v=2.2"></script>
+    <script src="js/visualizer.js?v=2.2"></script>
 
 </body>
 </html>
