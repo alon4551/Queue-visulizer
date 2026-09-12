@@ -95,7 +95,9 @@
                         </button>
                     </div>
                     <div class="card-header-actions">
+                        <span class="badge badge-drag-hint" id="queue-drag-hint" title="לחץ וגרור את מסילת התור עם העכבר להזזה חופשית">🖐️ גרור תור</span>
                         <span class="badge badge-fifo" id="queue-stage-hint-badge">Head = ראש (שליפה) | Tail = סוף (הכנסה)</span>
+                        <button type="button" class="btn-icon-toggle" id="btn-maximize-queue-stage" title="הגדל / שחזר חלון תצוגת התור">⛶</button>
                         <button type="button" class="btn-icon-toggle" id="btn-toggle-init-queue" title="מזער / הרחב">▾</button>
                     </div>
                 </div>
@@ -206,6 +208,11 @@
                 </div>
             </div>
 
+            <!-- מפריד שינוי גובה אנכי לחלון תצוגת התור (Vertical Resizer) -->
+            <div class="panel-resizer-vertical" id="queue-stage-resizer" title="גרור למעלה/למטה לשינוי גובה חלון תצוגת התור">
+                <div class="resizer-horizontal-grip"></div>
+            </div>
+
             <!-- כרטיסיות מעקב נתונים, מחסנית קריאות ומסוף פלט (Tabs: Variables, Call Stack, Console) -->
             <div class="card inspection-tabs-card" id="inspection-card">
                 <div class="card-header tabs-header">
@@ -260,8 +267,13 @@
 
         </section>
 
+        <!-- מפריד שינוי רוחב אופקי בין חלון התצוגה לעורך הקוד (Horizontal Splitter) -->
+        <div class="layout-splitter-horizontal" id="layout-splitter-horizontal" title="גרור שמאלה/ימינה לשינוי רוחב חלון התצוגה והעורך">
+            <div class="splitter-handle-bar"></div>
+        </div>
+
         <!-- צד שמאל בממשק RTL: עמודת העורך והבקרה (Editor & Control Column) -->
-        <div class="editor-column">
+        <div class="editor-column" id="editor-column">
             
             <!-- 1. סרגל בקרת הרצה -->
             <div class="card controls-card" id="controls-card">

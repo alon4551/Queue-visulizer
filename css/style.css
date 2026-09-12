@@ -101,18 +101,19 @@ body {
     color: #94a3b8;
 }
 
-/* פריסת תוכן ראשית (Zero-Scroll Viewport Grid) - ימין: המחשה, שמאל: עורך */
+/* פריסת תוכן ראשית (Zero-Scroll Viewport Grid) - ימין: המחשה, שמאל: עורך עם מפריד שינוי רוחב */
 .main-container {
     max-width: 1800px;
     margin: 0.4rem auto;
     padding: 0 0.85rem;
     display: grid;
-    grid-template-columns: 1.35fr 1fr;
-    gap: 0.85rem;
+    grid-template-columns: var(--visual-panel-width, 1.35fr) 10px var(--editor-column-width, 1fr);
+    gap: 0.45rem;
     flex: 1;
     width: 100%;
     min-height: 0;
     overflow: hidden;
+    position: relative;
 }
 
 @media (max-width: 1100px) {
@@ -121,6 +122,43 @@ body {
         height: auto;
         overflow: visible;
     }
+    .layout-splitter-horizontal {
+        display: none !important;
+    }
+}
+
+/* מפריד שינוי רוחב אופקי בין חלון התצוגה לעורך הקוד */
+.layout-splitter-horizontal {
+    width: 10px;
+    cursor: col-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    z-index: 20;
+    transition: background-color 0.2s;
+    border-radius: 4px;
+    margin: 0 -2px;
+}
+
+.layout-splitter-horizontal:hover,
+.layout-splitter-horizontal.is-dragging {
+    background: rgba(37, 99, 235, 0.18);
+}
+
+.layout-splitter-horizontal .splitter-handle-bar {
+    width: 4px;
+    height: 44px;
+    border-radius: 2px;
+    background: #cbd5e1;
+    transition: all 0.2s;
+}
+
+.layout-splitter-horizontal:hover .splitter-handle-bar,
+.layout-splitter-horizontal.is-dragging .splitter-handle-bar {
+    background: var(--primary);
+    height: 60px;
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
 }
 
 /* כפתורים ופקדי קלט כלליים */
@@ -752,13 +790,65 @@ body {
     flex-shrink: 0;
 }
 
-/* במת התורים (Queues Stage Card) */
+/* במת התורים (Queues Stage Card - ניתן לשינוי גובה ומקסום) */
 .queue-stage-card {
-    flex: 1 1 320px;
+    flex: var(--stage-card-flex, 1 1 320px);
     min-height: 180px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    resize: vertical;
+    position: relative;
+    transition: box-shadow 0.2s ease;
+}
+
+.queue-stage-card.is-maximized {
+    position: fixed !important;
+    top: 65px;
+    bottom: 15px;
+    right: 15px;
+    left: 15px;
+    z-index: 10000;
+    border: 2px solid var(--primary);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    background: #ffffff;
+    resize: none !important;
+    border-radius: 12px;
+}
+
+/* מפריד שינוי גובה אנכי מתחת לחלון במת התורים */
+.panel-resizer-vertical {
+    height: 10px;
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+    border-radius: 4px;
+    margin: -0.15rem 0;
+    z-index: 10;
+}
+
+.panel-resizer-vertical:hover,
+.panel-resizer-vertical.is-dragging {
+    background: rgba(37, 99, 235, 0.18);
+}
+
+.panel-resizer-vertical .resizer-horizontal-grip {
+    width: 48px;
+    height: 4px;
+    border-radius: 2px;
+    background: #cbd5e1;
+    transition: all 0.2s;
+}
+
+.panel-resizer-vertical:hover .resizer-horizontal-grip,
+.panel-resizer-vertical.is-dragging .resizer-horizontal-grip {
+    background: var(--primary);
+    width: 68px;
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
 }
 
 .queue-stage-card .tab-content-container {
@@ -861,6 +951,7 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.45rem;
+    user-select: none;
 }
 
 .queue-name-tag {
@@ -875,6 +966,70 @@ body {
 .queue-length-badge {
     font-size: 0.78rem;
     color: var(--text-muted);
+}
+
+.queue-header-end {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.queue-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    font-size: 1rem;
+    line-height: 1;
+    user-select: none;
+    transition: all 0.15s ease;
+    margin-left: 0.3rem;
+}
+
+.queue-drag-handle:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: var(--primary);
+    transform: scale(1.08);
+}
+
+.queue-drag-handle:active {
+    cursor: grabbing;
+}
+
+.queue-drag-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #2563eb;
+    background: #eff6ff;
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid #bfdbfe;
+    user-select: none;
+}
+
+.badge-drag-hint {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    font-size: 0.76rem;
+    font-weight: 700;
+    user-select: none;
+    transition: all 0.15s;
+    cursor: default;
+}
+
+.queue-track-card.is-dragging-card {
+    opacity: 0.45;
+    border: 2px dashed var(--primary);
 }
 
 /* סרגל כיווניות וקצוות התור - ממוקם מעל המסילה */
@@ -929,7 +1084,7 @@ body {
     color: var(--primary);
 }
 
-/* מסילת התור האופקית */
+/* מסילת התור האופקית - תמיכה בגרירה פנורמית */
 .queue-horizontal-track {
     position: relative;
     background: #ffffff;
@@ -942,6 +1097,30 @@ body {
     direction: ltr; /* משמאל (Head) לימין (Tail) */
     gap: 0.85rem;
     overflow-x: auto;
+    cursor: grab;
+    user-select: none;
+    touch-action: pan-y;
+}
+
+.queue-horizontal-track:active,
+.queue-horizontal-track.is-panning,
+.queue-elements-flow.is-panning,
+.queues-stage.is-panning,
+body.queue-dragging-active,
+body.queue-dragging-active * {
+    cursor: grabbing !important;
+}
+
+.queue-elements-flow {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex: 1;
+    padding: 2.2rem 0.75rem;
+    overflow-x: auto;
+    min-height: 130px;
+    cursor: grab;
+    user-select: none;
 }
 
 /* שערי קצוות המסילה (שערים פיזיים מורחבים וברורים) */

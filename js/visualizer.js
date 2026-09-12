@@ -20,6 +20,8 @@ class QueueVisualizerApp {
     init() {
         this.cacheDom();
         this.bindEvents();
+        this.setupWindowResizers();
+        this.setupQueueDragging();
         this.dom.initialQueueInput.value = this.initialQueue.join(', ');
         this.dom.codeTextarea.value = `public class Program
 {
@@ -76,6 +78,13 @@ class QueueVisualizerApp {
         this.dom.btnToggleTabs = document.getElementById('btn-toggle-tabs');
 
         this.dom.queueStageCard = document.getElementById('queue-stage-card');
+        this.dom.btnMaximizeQueueStage = document.getElementById('btn-maximize-queue-stage');
+        this.dom.queueStageResizer = document.getElementById('queue-stage-resizer');
+        this.dom.layoutSplitter = document.getElementById('layout-splitter-horizontal');
+        this.dom.queueDragHint = document.getElementById('queue-drag-hint');
+        this.dom.mainContainer = document.getElementById('main-container') || document.querySelector('.main-container');
+        this.dom.visualPanel = document.getElementById('visual-panel') || document.querySelector('.visual-panel');
+
         this.dom.tabBtnQueueView = document.getElementById('tab-btn-queue-view');
         this.dom.tabBtnQueueInit = document.getElementById('tab-btn-queue-init');
         this.dom.tabPaneQueueView = document.getElementById('tab-pane-queue-view');
@@ -1321,13 +1330,20 @@ public class Program
             else if (q.name === 'evens') queueBadgeColor = '#059669';
             else if (q.name === 'odds') queueBadgeColor = '#7c3aed';
 
+            trackCard.dataset.queueName = q.name;
+            trackCard.draggable = true;
+
             trackCard.innerHTML = `
                 <div class="queue-track-header">
                     <div class="queue-name-tag">
+                        <span class="queue-drag-handle" title="לחץ וגרור כדי לשנות את סדר התורים">⠿</span>
                         <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${queueBadgeColor}"></span>
                         <span>Queue&lt;${q.itemType || 'int'}&gt; <strong>${q.name}</strong></span>
                     </div>
-                    <div class="queue-length-badge">כמות איברים: <strong>${q.items.length}</strong></div>
+                    <div class="queue-header-end">
+                        <span class="queue-drag-indicator" title="ניתן לגרור את מסילת התור ימינה ושמאלה עם העכבר">🖐️ גרירה פעילה</span>
+                        <div class="queue-length-badge">כמות איברים: <strong>${q.items.length}</strong></div>
+                    </div>
                 </div>
 
                 <!-- סרגל קצוות מעל המסילה - אינו נדרס על ידי האיברים -->
@@ -1606,13 +1622,285 @@ public class Program
         this.renderCurrentFrame();
     }
 
-    escapeHtml(text) {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+    setupWindowResizers() {
+        const container = this.dom.mainContainer;
+        const splitter = this.dom.layoutSplitter;
+        const stageResizer = this.dom.queueStageResizer;
+        const stageCard = this.dom.queueStageCard;
+        const maxBtn = this.dom.btnMaximizeQueueStage;
+
+        // 1. Horizontal Splitter (שינוי רוחב חלון התצוגה vs עורך הקוד)
+        if (container && splitter) {
+            const savedWidth = localStorage.getItem('queue_viz_split_width');
+            if (savedWidth) {
+                const w = parseFloat(savedWidth);
+                if (!isNaN(w) && w >= 20 && w <= 80) {
+                    container.style.gridTemplateColumns = `${w}% 10px ${100 - w}%`;
+                }
+            }
+
+            let isDraggingHoriz = false;
+            let startX = 0;
+            let startVisualWidth = 0;
+            let containerWidth = 0;
+
+            const onPointerDownHoriz = (e) => {
+                isDraggingHoriz = true;
+                startX = e.clientX;
+                const containerRect = container.getBoundingClientRect();
+                containerWidth = containerRect.width;
+                const visualPanel = document.getElementById('visual-panel') || document.querySelector('.visual-panel');
+                startVisualWidth = visualPanel ? visualPanel.getBoundingClientRect().width : containerWidth * 0.58;
+
+                splitter.classList.add('is-dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                try { splitter.setPointerCapture(e.pointerId); } catch (_) {}
+                e.preventDefault();
+            };
+
+            const onPointerMoveHoriz = (e) => {
+                if (!isDraggingHoriz) return;
+                const isRtl = document.documentElement.dir === 'rtl' || getComputedStyle(document.body).direction === 'rtl';
+                const deltaX = e.clientX - startX;
+                // In RTL, dragging mouse left increases right column (visual-panel)
+                const currentVisualWidth = isRtl ? (startVisualWidth - deltaX) : (startVisualWidth + deltaX);
+
+                const minVisual = 280;
+                const minEditor = 260;
+                const maxVisual = containerWidth - minEditor - 20;
+                const clamped = Math.max(minVisual, Math.min(maxVisual, currentVisualWidth));
+
+                const visualPercent = (clamped / containerWidth) * 100;
+                const editorPercent = 100 - visualPercent;
+
+                container.style.gridTemplateColumns = `${visualPercent.toFixed(2)}% 10px ${editorPercent.toFixed(2)}%`;
+                localStorage.setItem('queue_viz_split_width', visualPercent.toFixed(2));
+            };
+
+            const onPointerUpHoriz = (e) => {
+                if (!isDraggingHoriz) return;
+                isDraggingHoriz = false;
+                splitter.classList.remove('is-dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                try { splitter.releasePointerCapture(e.pointerId); } catch (_) {}
+            };
+
+            splitter.addEventListener('pointerdown', onPointerDownHoriz);
+            splitter.addEventListener('pointermove', onPointerMoveHoriz);
+            splitter.addEventListener('pointerup', onPointerUpHoriz);
+            splitter.addEventListener('pointercancel', onPointerUpHoriz);
+        }
+
+        // 2. Vertical Resizer (שינוי גובה חלון תצוגת התור)
+        if (stageResizer && stageCard) {
+            const savedHeight = localStorage.getItem('queue_viz_stage_height');
+            if (savedHeight) {
+                const h = parseFloat(savedHeight);
+                if (!isNaN(h) && h >= 160 && h <= 1200) {
+                    stageCard.style.height = `${h}px`;
+                    stageCard.style.setProperty('--stage-card-flex', `0 0 ${h}px`);
+                }
+            }
+
+            let isDraggingVert = false;
+            let startY = 0;
+            let startHeight = 0;
+
+            const onPointerDownVert = (e) => {
+                isDraggingVert = true;
+                startY = e.clientY;
+                startHeight = stageCard.getBoundingClientRect().height;
+
+                stageResizer.classList.add('is-dragging');
+                document.body.style.cursor = 'row-resize';
+                document.body.style.userSelect = 'none';
+                try { stageResizer.setPointerCapture(e.pointerId); } catch (_) {}
+                e.preventDefault();
+            };
+
+            const onPointerMoveVert = (e) => {
+                if (!isDraggingVert) return;
+                const deltaY = e.clientY - startY;
+                const visualPanel = document.getElementById('visual-panel') || document.querySelector('.visual-panel');
+                const panelHeight = visualPanel ? visualPanel.getBoundingClientRect().height : 800;
+
+                const minHeight = 160;
+                const maxHeight = Math.max(minHeight + 60, panelHeight - 110);
+                const newHeight = Math.max(minHeight, Math.min(maxHeight, startHeight + deltaY));
+
+                stageCard.style.height = `${newHeight}px`;
+                stageCard.style.setProperty('--stage-card-flex', `0 0 ${newHeight}px`);
+                localStorage.setItem('queue_viz_stage_height', newHeight);
+            };
+
+            const onPointerUpVert = (e) => {
+                if (!isDraggingVert) return;
+                isDraggingVert = false;
+                stageResizer.classList.remove('is-dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                try { stageResizer.releasePointerCapture(e.pointerId); } catch (_) {}
+            };
+
+            stageResizer.addEventListener('pointerdown', onPointerDownVert);
+            stageResizer.addEventListener('pointermove', onPointerMoveVert);
+            stageResizer.addEventListener('pointerup', onPointerUpVert);
+            stageResizer.addEventListener('pointercancel', onPointerUpVert);
+        }
+
+        // 3. Maximize / Fullscreen Toggle (הגדלה / שחזור חלון תצוגת התור)
+        if (maxBtn && stageCard) {
+            maxBtn.addEventListener('click', () => {
+                const isMax = stageCard.classList.toggle('is-maximized');
+                maxBtn.innerHTML = isMax ? '❐' : '⛶';
+                maxBtn.title = isMax ? 'שחזר גודל חלון תצוגה' : 'הגדל חלון תצוגה';
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && stageCard.classList.contains('is-maximized')) {
+                    stageCard.classList.remove('is-maximized');
+                    maxBtn.innerHTML = '⛶';
+                    maxBtn.title = 'הגדל חלון תצוגה';
+                }
+            });
+        }
+    }
+
+    setupQueueDragging() {
+        const stage = this.dom.queuesStage;
+        if (!stage) return;
+
+        let isDown = false;
+        let startX = 0;
+        let startY = 0;
+        let scrollLeft = 0;
+        let scrollTop = 0;
+        let activeTarget = null;
+        let hasMoved = false;
+        let velocityX = 0;
+        let lastX = 0;
+        let lastTime = 0;
+        let animationFrame = null;
+
+        // 1. Click & Drag Pan on the Track & Flow
+        stage.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('button') || e.target.closest('input') || e.target.closest('.queue-drag-handle')) {
+                return;
+            }
+
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+
+            const flow = e.target.closest('.queue-elements-flow') || e.target.closest('.queue-horizontal-track');
+            activeTarget = flow || stage;
+
+            isDown = true;
+            hasMoved = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            lastX = e.clientX;
+            lastTime = performance.now();
+            velocityX = 0;
+            scrollLeft = activeTarget.scrollLeft;
+            scrollTop = activeTarget.scrollTop;
+
+            activeTarget.classList.add('is-panning');
+            document.body.classList.add('queue-dragging-active');
+            try { activeTarget.setPointerCapture(e.pointerId); } catch (_) {}
+        });
+
+        stage.addEventListener('pointermove', (e) => {
+            if (!isDown || !activeTarget) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                hasMoved = true;
+            }
+
+            const now = performance.now();
+            const dt = Math.max(1, now - lastTime);
+            velocityX = (e.clientX - lastX) / dt;
+            lastX = e.clientX;
+            lastTime = now;
+
+            if (activeTarget !== stage) {
+                activeTarget.scrollLeft = scrollLeft - dx;
+            } else {
+                activeTarget.scrollLeft = scrollLeft - dx;
+                activeTarget.scrollTop = scrollTop - dy;
+            }
+        });
+
+        const stopDrag = (e) => {
+            if (!isDown) return;
+            isDown = false;
+            const target = activeTarget;
+
+            if (target) {
+                target.classList.remove('is-panning');
+                try { target.releasePointerCapture(e.pointerId); } catch (_) {}
+                activeTarget = null;
+            }
+            document.body.classList.remove('queue-dragging-active');
+
+            // Momentum glide
+            if (hasMoved && target && Math.abs(velocityX) > 0.2) {
+                let currentVelocity = velocityX * 12;
+                const glide = () => {
+                    if (Math.abs(currentVelocity) < 0.5) return;
+                    target.scrollLeft -= currentVelocity;
+                    currentVelocity *= 0.92;
+                    animationFrame = requestAnimationFrame(glide);
+                };
+                animationFrame = requestAnimationFrame(glide);
+            }
+        };
+
+        stage.addEventListener('pointerup', stopDrag);
+        stage.addEventListener('pointercancel', stopDrag);
+
+        stage.addEventListener('click', (e) => {
+            if (hasMoved) {
+                e.preventDefault();
+                e.stopPropagation();
+                hasMoved = false;
+            }
+        }, true);
+
+        // 2. Drag & Drop Reordering for Queue Cards (when multiple queues exist)
+        let draggedCard = null;
+
+        stage.addEventListener('dragstart', (e) => {
+            const card = e.target.closest('.queue-track-card');
+            if (!card) return;
+            draggedCard = card;
+            card.classList.add('is-dragging-card');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', card.dataset.queueName || '');
+        });
+
+        stage.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const targetCard = e.target.closest('.queue-track-card');
+            if (targetCard && targetCard !== draggedCard) {
+                const rect = targetCard.getBoundingClientRect();
+                const isAfter = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
+                stage.insertBefore(draggedCard, isAfter ? targetCard.nextSibling : targetCard);
+            }
+        });
+
+        stage.addEventListener('dragend', () => {
+            if (draggedCard) {
+                draggedCard.classList.remove('is-dragging-card');
+                draggedCard = null;
+            }
+        });
     }
 }
 
