@@ -117,6 +117,13 @@ class QueueVisualizerApp {
         this.dom.tabPaneQueueView = document.getElementById('tab-pane-queue-view');
         this.dom.tabPaneQueueInit = document.getElementById('tab-pane-queue-init');
 
+        this.dom.tabLabelQueueView = document.getElementById('tab-label-queue-view');
+        this.dom.tabIconQueueView = document.getElementById('tab-icon-queue-view');
+        this.dom.tabLabelQueueInit = document.getElementById('tab-label-queue-init');
+        this.dom.tabIconQueueInit = document.getElementById('tab-icon-queue-init');
+        this.dom.tabInitBadge = document.getElementById('queue-init-badge-tab');
+        this.dom.queueStageHintBadge = document.getElementById('queue-stage-hint-badge');
+
         this.dom.tabBtnVars = document.getElementById('tab-btn-vars');
         this.dom.tabBtnStack = document.getElementById('tab-btn-stack');
         this.dom.tabBtnConsole = document.getElementById('tab-btn-console');
@@ -142,13 +149,7 @@ class QueueVisualizerApp {
     setupStudioMode() {
         this.studioMode = 'all';
         this.modeEditorState = {
-            'all': {
-                editorFiles: JSON.parse(JSON.stringify(this.editorFiles)),
-                activeFileName: 'Program.cs',
-                initialParams: JSON.parse(JSON.stringify(this.initialParams)),
-                initialQueue: [...this.initialQueue],
-                initialQueueType: this.initialQueueType || 'int'
-            },
+            'all': this.getDefaultModeState('all'),
             'queue': {
                 editorFiles: JSON.parse(JSON.stringify(this.editorFiles)),
                 activeFileName: 'Program.cs',
@@ -185,12 +186,16 @@ class QueueVisualizerApp {
         }
 
         this.applyStudioModeClass();
+        this.updateContextualText(this.studioMode);
     }
 
     switchStudioMode(targetMode) {
         if (!targetMode) return;
         const prevMode = this.studioMode;
         if (targetMode === prevMode) return;
+
+        const wasInInitTab = (this.dom.tabPaneQueueInit && this.dom.tabPaneQueueInit.classList.contains('active')) ||
+            (document.getElementById('tab-pane-queue-init') && document.getElementById('tab-pane-queue-init').classList.contains('active'));
 
         // 1. שמירת מצב העורך הנוכחי של המצב היוצא
         this.saveCurrentModeState(prevMode);
@@ -221,7 +226,11 @@ class QueueVisualizerApp {
 
         // 6. קומפילציה מחדש וריענון במת ההמחשה
         this.recompile();
-        if (this.switchQueueTab) this.switchQueueTab('queue-view');
+        if (wasInInitTab && this.switchQueueTab) {
+            this.switchQueueTab('queue-init');
+        } else if (this.switchQueueTab) {
+            this.switchQueueTab('queue-view');
+        }
     }
 
     saveCurrentModeState(mode = this.studioMode) {
@@ -231,6 +240,15 @@ class QueueVisualizerApp {
         if (this.editorFiles && this.editorFiles[this.activeFileName] && this.dom.codeTextarea) {
             this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
         }
+
+        // אם המצב היוצא הוא 'all' והקוד בו עדיין מכיל רק תור בודד ללא עריכה, נשמור את ברירת המחדל המשולבת
+        if (mode === 'all' && this.dom.codeTextarea && this.dom.codeTextarea.value.includes('Main(Queue<int> q)') && !this.dom.codeTextarea.value.includes('Stack<int>')) {
+            if (!this.modeEditorState['all']) {
+                this.modeEditorState['all'] = this.getDefaultModeState('all');
+            }
+            return;
+        }
+
         this.modeEditorState[mode] = {
             editorFiles: JSON.parse(JSON.stringify(this.editorFiles)),
             activeFileName: this.activeFileName,
@@ -348,6 +366,7 @@ public class Program
         }
 
         this.applyStudioModeClass();
+        this.updateContextualText(mode);
 
         if (updateUrl && window.history && window.history.replaceState) {
             const url = new URL(window.location.href);
@@ -371,6 +390,121 @@ public class Program
         });
         this.dom.queuesStage.classList.add(`mode-${this.studioMode}`);
         this.dom.queuesStage.dataset.studioMode = this.studioMode;
+    }
+
+    updateContextualText(mode = this.studioMode) {
+        const texts = {
+            queue: {
+                viewTab: 'תצוגת התור (Queue View)',
+                viewIcon: '🔄',
+                initTab: 'אתחול קלט התור (Init Queue)',
+                initIcon: '📥',
+                dragHint: '🖐️ גרור תור',
+                stageHint: 'Head = ראש (שליפה) | Tail = סוף (הכנסה)',
+                randomBtn: '🎲 הגרל ערכים לתור',
+                initTitlePrefix: 'אתחול תור (Queue)',
+                initDesc: 'הגדרת ערכים התחלתיים לתור המועבר כארגומנט לפעולה <code>Main</code> בעורך.',
+                maximizeHint: 'הגדל / שחזר חלון תצוגת התור'
+            },
+            stack: {
+                viewTab: 'תצוגת המחסנית (Stack View)',
+                viewIcon: '🥞',
+                initTab: 'אתחול קלט המחסנית (Init Stack)',
+                initIcon: '🥞',
+                dragHint: '🖐️ גרור מחסנית',
+                stageHint: 'Top = ראש המחסנית (LIFO) | Push & Pop',
+                randomBtn: '🎲 הגרל ערכים למחסנית',
+                initTitlePrefix: 'אתחול מחסנית (Stack)',
+                initDesc: 'הגדרת ערכים התחלתיים למחסנית המועברת כארגומנט לפעולה <code>Main</code> בעורך.',
+                maximizeHint: 'הגדל / שחזר חלון תצוגת המחסנית'
+            },
+            node: {
+                viewTab: 'תצוגת חוליות (Node View)',
+                viewIcon: '🔗',
+                initTab: 'אתחול שרשרת חוליות (Init Node)',
+                initIcon: '🔗',
+                dragHint: '🖐️ גרור חוליה',
+                stageHint: 'Head = ראש השרשרת | Next ➔ null',
+                randomBtn: '🎲 הגרל ערכים לשרשרת',
+                initTitlePrefix: 'אתחול שרשרת חוליות (Node)',
+                initDesc: 'הגדרת ערכים התחלתיים לשרשרת החוליות המועברת כארגומנט לפעולה <code>Main</code> בעורך.',
+                maximizeHint: 'הגדל / שחזר חלון תצוגת החוליות'
+            },
+            binnode: {
+                viewTab: 'תצוגת עץ בינארי (BinNode View)',
+                viewIcon: '🌳',
+                initTab: 'אתחול עץ בינארי (Init BinNode)',
+                initIcon: '🌳',
+                dragHint: '🖐️ גרור עץ בינארי',
+                stageHint: 'Root = שורש העץ | Left & Right',
+                randomBtn: '🎲 הגרל ערכים לעץ בינארי',
+                initTitlePrefix: 'אתחול עץ בינארי (BinNode)',
+                initDesc: 'הגדרת ערכים התחלתיים לעץ הבינארי המועבר כארגומנט לפעולה <code>Main</code> בעורך.',
+                maximizeHint: 'הגדל / שחזר חלון תצוגת העץ הבינארי'
+            },
+            all: {
+                viewTab: 'תצוגת מבני נתונים (Studio View)',
+                viewIcon: '🌐',
+                initTab: 'אתחול מבני נתונים (Init Studio)',
+                initIcon: '📥',
+                dragHint: '🖐️ גרור מבנה נתונים',
+                stageHint: 'תצוגה משולבת של כל מבני הנתונים הפעילים',
+                randomBtn: '🎲 הגרל ערכים לכל המבנים',
+                initTitlePrefix: 'משתני ופרמטרי פעולת Main',
+                initDesc: 'הגדרת ערכים התחלתיים לכל התורים, המחסניות והמשתנים המועברים כארגומנטים לפעולה <code>Main</code> בעורך.',
+                maximizeHint: 'הגדל / שחזר חלון תצוגת הסטודיו'
+            }
+        };
+
+        const current = texts[mode] || texts['all'];
+
+        // 1. כרטיסיית תצוגה
+        if (this.dom.tabLabelQueueView) {
+            this.dom.tabLabelQueueView.textContent = current.viewTab;
+        } else if (this.dom.tabBtnQueueView) {
+            const lbl = this.dom.tabBtnQueueView.querySelector('.tab-label');
+            if (lbl) lbl.textContent = current.viewTab;
+        }
+        if (this.dom.tabIconQueueView) {
+            this.dom.tabIconQueueView.textContent = current.viewIcon;
+        }
+
+        // 2. כרטיסיית אתחול
+        if (this.dom.tabLabelQueueInit) {
+            this.dom.tabLabelQueueInit.textContent = current.initTab;
+        } else if (this.dom.tabBtnQueueInit) {
+            const lbl = this.dom.tabBtnQueueInit.querySelector('.tab-label');
+            if (lbl) lbl.textContent = current.initTab;
+        }
+        if (this.dom.tabIconQueueInit) {
+            this.dom.tabIconQueueInit.textContent = current.initIcon;
+        }
+
+        // 3. תגית גרירה
+        if (this.dom.queueDragHint) {
+            this.dom.queueDragHint.textContent = current.dragHint;
+        }
+
+        // 4. תגית עזר לשלב
+        if (this.dom.queueStageHintBadge) {
+            this.dom.queueStageHintBadge.textContent = current.stageHint;
+        }
+
+        // 5. כפתור הגרלה
+        if (this.dom.btnRandomQueue) {
+            this.dom.btnRandomQueue.textContent = current.randomBtn;
+        }
+
+        // 6. כפתור מקסום
+        if (this.dom.btnMaximizeQueueStage) {
+            this.dom.btnMaximizeQueueStage.title = current.maximizeHint;
+        }
+
+        // 7. תיאור חלון האתחול
+        const descEl = document.querySelector('.queue-init-desc');
+        if (descEl) {
+            descEl.innerHTML = current.initDesc;
+        }
     }
 
     bindEvents() {
@@ -1760,6 +1894,9 @@ public class Program
                 this.switchStudioMode('binnode');
             }
         } else if (sampleType === 'Point' || this.isCustomClassType(sampleType)) {
+            if (this.studioMode !== 'queue' && this.studioMode !== 'all') {
+                this.switchStudioMode('queue');
+            }
             if (this.isCustomClassType(this.initialQueueType) && this.initialQueueType !== 'Point') {
                 const sampleItems = this.generateRandomQueue(this.initialQueueType);
                 sampleVal = this.formatQueueInputValue(sampleItems, this.initialQueueType);
@@ -1770,22 +1907,34 @@ public class Program
                 }
             }
         } else if (sampleType.startsWith('Queue')) {
+            if (this.studioMode !== 'queue' && this.studioMode !== 'all') {
+                this.switchStudioMode('queue');
+            }
             sampleVal = '[10, 20], [30, 40], [50, 60]';
             if (!this.initialQueueType.startsWith('Queue')) {
                 targetCodePreset = 'queue-of-queues';
             }
         } else if (sampleType === 'char') {
+            if (this.studioMode !== 'queue' && this.studioMode !== 'all') {
+                this.switchStudioMode('queue');
+            }
             sampleVal = "'a', 'b', 'c', 'd'";
             if (this.initialQueueType !== 'char') {
                 targetCodePreset = 'chars';
             }
         } else if (sampleType === 'string') {
+            if (this.studioMode !== 'queue' && this.studioMode !== 'all') {
+                this.switchStudioMode('queue');
+            }
             sampleVal = '"apple", "banana", "cherry", "date"';
             if (this.initialQueueType !== 'string') {
                 targetCodePreset = 'strings';
             }
         } else {
             // int
+            if (this.studioMode !== 'queue' && this.studioMode !== 'all') {
+                this.switchStudioMode('queue');
+            }
             sampleVal = '14, 7, 25, 9, 31';
             if (this.initialQueueType !== 'int') {
                 targetCodePreset = 'basic';
@@ -2026,6 +2175,21 @@ public class Program
             const primaryStackParam = result.params.find(p => p.isStack);
             const primaryNodeParam = result.params.find(p => p.isNode || (p.type && p.type.startsWith('Node')));
             const primaryBinNodeParam = result.params.find(p => p.isBinNode || (p.type && p.type.startsWith('BinNode')));
+
+            let effectiveMode = this.studioMode;
+            if (this.studioMode === 'all') {
+                const countActive = [!!primaryQueueParam, !!primaryStackParam, !!primaryNodeParam, !!primaryBinNodeParam].filter(Boolean).length;
+                if (countActive === 1) {
+                    if (primaryQueueParam) effectiveMode = 'queue';
+                    else if (primaryStackParam) effectiveMode = 'stack';
+                    else if (primaryNodeParam) effectiveMode = 'node';
+                    else if (primaryBinNodeParam) effectiveMode = 'binnode';
+                } else {
+                    effectiveMode = 'all';
+                }
+            }
+            this.updateContextualText(effectiveMode);
+
             if (primaryQueueParam) {
                 const qType = primaryQueueParam.itemType || 'int';
 
@@ -2378,12 +2542,25 @@ public class Program
                 this.dom.queueInitRow = document.getElementById('queue-init-row');
             }
 
+            const pNames = result.params.map(p => p.name).join(', ');
             if (this.dom.queueInitTitle) {
-                this.dom.queueInitTitle.innerHTML = `משתני ופרמטרי פעולת Main (${result.params.length})`;
+                const prefixMap = {
+                    queue: 'אתחול תור (Queue)',
+                    stack: 'אתחול מחסנית (Stack)',
+                    node: 'אתחול שרשרת חוליות (Node)',
+                    binnode: 'אתחול עץ בינארי (BinNode)',
+                    all: 'משתני ופרמטרי פעולת Main'
+                };
+                const prefix = prefixMap[effectiveMode] || 'משתני ופרמטרי פעולת Main';
+                this.dom.queueInitTitle.innerHTML = `${prefix} (${result.params.length})`;
             }
             if (this.dom.queueInitBadge) {
-                this.dom.queueInitBadge.textContent = `קלט פעיל ל-${result.params.map(p => p.name).join(', ')}`;
+                this.dom.queueInitBadge.textContent = `קלט פעיל ל-${pNames}`;
                 this.dom.queueInitBadge.className = 'badge badge-active';
+            }
+            if (this.dom.tabInitBadge) {
+                this.dom.tabInitBadge.textContent = `קלט פעיל ל-${pNames}`;
+                this.dom.tabInitBadge.className = 'badge badge-active';
             }
             if (this.dom.queueInitHint) {
                 this.dom.queueInitHint.innerHTML = `הערכים מועברים ישירות כארגומנטים לפעולת הכניסה <code>Main(${result.params.map(p => `${p.type} ${p.name}`).join(', ')})</code>.`;
@@ -2393,18 +2570,30 @@ public class Program
             if (this.dom.btnRandomQueue) this.dom.btnRandomQueue.disabled = false;
         } else {
             this.dom.queueInitCard.classList.add('inactive');
+            this.updateContextualText(this.studioMode);
             if (this.dom.queueParamsContainer) {
-                this.dom.queueParamsContainer.innerHTML = '<p class="queue-init-desc" style="margin: 0.5rem 0;">💡 פעולת Main אינה מקבלת פרמטרים. תורים חדשים ייווצרו ויוצגו בעת שימוש ב-<code>new Queue&lt;T&gt;()</code> בקוד.</p>';
+                this.dom.queueParamsContainer.innerHTML = '<p class="queue-init-desc" style="margin: 0.5rem 0;">💡 פעולת Main אינה מקבלת פרמטרים. מבני נתונים חדשים ייווצרו ויוצגו בעת שימוש ב-<code>new</code> בקוד.</p>';
             }
             if (this.dom.queueInitTitle) {
-                this.dom.queueInitTitle.innerHTML = `משתנה תור התחלתי`;
+                const titleMap = {
+                    queue: 'משתנה תור התחלתי',
+                    stack: 'משתנה מחסנית התחלתי',
+                    node: 'משתנה חוליה התחלתי',
+                    binnode: 'משתנה עץ בינארי התחלתי',
+                    all: 'משתנים התחלתיים'
+                };
+                this.dom.queueInitTitle.innerHTML = titleMap[this.studioMode] || 'משתנים התחלתיים';
             }
             if (this.dom.queueInitBadge) {
                 this.dom.queueInitBadge.textContent = `לא נדרש (אין פרמטרים)`;
                 this.dom.queueInitBadge.className = 'badge badge-inactive';
             }
+            if (this.dom.tabInitBadge) {
+                this.dom.tabInitBadge.textContent = `אין פרמטרים`;
+                this.dom.tabInitBadge.className = 'badge badge-inactive';
+            }
             if (this.dom.queueInitHint) {
-                this.dom.queueInitHint.innerHTML = `💡 פעולת הכניסה אינה מקבלת פרמטר תור. תורים חדשים ייווצרו ויוצגו בחלון ההמחשה בעת שימוש ב-<code>new Queue&lt;T&gt;()</code> בקוד.`;
+                this.dom.queueInitHint.innerHTML = `💡 פעולת הכניסה אינה מקבלת פרמטרים. מבני נתונים חדשים ייווצרו ויוצגו בחלון ההמחשה בעת שימוש ב-<code>new</code> בקוד.`;
             }
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = true;
             if (this.dom.btnRandomQueue) this.dom.btnRandomQueue.disabled = true;

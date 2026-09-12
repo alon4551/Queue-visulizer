@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מאייר ומפרש תור ב-C# | אלון שרייבמן</title>
+    <title>סטודיו ומפרש מבני נתונים ב-C# | אלון שרייבמן</title>
     <link rel="stylesheet" href="css/style.css?v=2.4">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔄</text></svg>">
     <script>
@@ -108,13 +108,13 @@
                 <div class="card-header tabs-header">
                     <div class="tabs-nav">
                         <button type="button" class="tab-btn active" id="tab-btn-queue-view" data-tab="queue-view" onclick="switchQueueTab('queue-view')">
-                            <span>📦</span>
-                            <span>תצוגת התור (Queue View)</span>
+                            <span class="tab-icon" id="tab-icon-queue-view">📦</span>
+                            <span class="tab-label" id="tab-label-queue-view">תצוגת התור (Queue View)</span>
                         </button>
                         <button type="button" class="tab-btn" id="tab-btn-queue-init" data-tab="queue-init" onclick="switchQueueTab('queue-init')">
-                            <span>📥</span>
-                            <span>אתחול קלט התור (Init Queue)</span>
-                            <span class="badge badge-active" id="queue-init-badge">קלט פעיל ל-q</span>
+                            <span class="tab-icon" id="tab-icon-queue-init">📥</span>
+                            <span class="tab-label" id="tab-label-queue-init">אתחול קלט התור (Init Queue)</span>
+                            <span class="badge badge-active" id="queue-init-badge-tab">קלט פעיל ל-q</span>
                         </button>
                     </div>
                     <div class="card-header-actions">
