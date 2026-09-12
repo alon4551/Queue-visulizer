@@ -501,6 +501,8 @@ class Parser {
         while (['public', 'private', 'protected', 'static', 'override', 'virtual', 'void', 'int', 'char', 'bool', 'double', 'string', 'var'].includes(tok.value) ||
                tok.value.startsWith('Queue<') || tok.value.startsWith('Queue') ||
                tok.value.startsWith('Stack<') || tok.value.startsWith('Stack') ||
+               tok.value.startsWith('Node<') || tok.value.startsWith('Node') ||
+               tok.value.startsWith('BinNode<') || tok.value.startsWith('BinNode') ||
                (this.knownClasses && this.knownClasses.has(tok.value))) {
             i++;
             tok = this.peek(i);

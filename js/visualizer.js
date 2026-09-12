@@ -141,10 +141,36 @@ class QueueVisualizerApp {
 
     setupStudioMode() {
         this.studioMode = 'all';
+        this.modeEditorState = {
+            'all': {
+                editorFiles: JSON.parse(JSON.stringify(this.editorFiles)),
+                activeFileName: 'Program.cs',
+                initialParams: JSON.parse(JSON.stringify(this.initialParams)),
+                initialQueue: [...this.initialQueue],
+                initialQueueType: this.initialQueueType || 'int'
+            },
+            'queue': {
+                editorFiles: JSON.parse(JSON.stringify(this.editorFiles)),
+                activeFileName: 'Program.cs',
+                initialParams: JSON.parse(JSON.stringify(this.initialParams)),
+                initialQueue: [...this.initialQueue],
+                initialQueueType: this.initialQueueType || 'int'
+            }
+        };
+
         const urlParams = new URLSearchParams(window.location.search);
         const modeParam = urlParams.get('mode');
         if (modeParam && ['all', 'queue', 'stack', 'node', 'binnode'].includes(modeParam)) {
             this.studioMode = modeParam;
+            if (modeParam !== 'all' && modeParam !== 'queue') {
+                const defState = this.getDefaultModeState(modeParam);
+                this.modeEditorState[modeParam] = defState;
+                this.editorFiles = JSON.parse(JSON.stringify(defState.editorFiles));
+                this.activeFileName = defState.activeFileName;
+                this.initialParams = JSON.parse(JSON.stringify(defState.initialParams));
+                this.initialQueue = [...defState.initialQueue];
+                this.initialQueueType = defState.initialQueueType;
+            }
         }
 
         if (this.dom.studioModeButtons) {
@@ -152,13 +178,161 @@ class QueueVisualizerApp {
                 btn.addEventListener('click', () => {
                     const mode = btn.dataset.mode;
                     if (mode) {
-                        this.setStudioMode(mode, true);
+                        this.switchStudioMode(mode);
                     }
                 });
             });
         }
 
         this.applyStudioModeClass();
+    }
+
+    switchStudioMode(targetMode) {
+        if (!targetMode) return;
+        const prevMode = this.studioMode;
+        if (targetMode === prevMode) return;
+
+        // 1. שמירת מצב העורך הנוכחי של המצב היוצא
+        this.saveCurrentModeState(prevMode);
+
+        // 2. קבלת המצב הנשמר או יצירת תבנית ברירת מחדל עבור המצב הנכנס
+        let nextState = this.modeEditorState ? this.modeEditorState[targetMode] : null;
+        if (!nextState) {
+            nextState = this.getDefaultModeState(targetMode);
+            this.modeEditorState[targetMode] = nextState;
+        }
+
+        // 3. החלת המצב על העורך ועל המשתנים
+        this.editorFiles = JSON.parse(JSON.stringify(nextState.editorFiles));
+        this.activeFileName = nextState.activeFileName || 'Program.cs';
+        this.initialParams = JSON.parse(JSON.stringify(nextState.initialParams));
+        this.initialQueue = Array.isArray(nextState.initialQueue) ? [...nextState.initialQueue] : nextState.initialQueue;
+        this.initialQueueType = nextState.initialQueueType || 'int';
+
+        // 4. עדכון תוכן עורך הקוד, הלשוניות ומספרי השורות
+        if (this.editorFiles[this.activeFileName] && this.dom.codeTextarea) {
+            this.dom.codeTextarea.value = this.editorFiles[this.activeFileName].code;
+        }
+        this.renderEditorTabs();
+        this.updateLineNumbers();
+
+        // 5. עדכון כפתורי המצב וה-URL
+        this.setStudioMode(targetMode, true);
+
+        // 6. קומפילציה מחדש וריענון במת ההמחשה
+        this.recompile();
+        if (this.switchQueueTab) this.switchQueueTab('queue-view');
+    }
+
+    saveCurrentModeState(mode = this.studioMode) {
+        if (!this.modeEditorState) {
+            this.modeEditorState = {};
+        }
+        if (this.editorFiles && this.editorFiles[this.activeFileName] && this.dom.codeTextarea) {
+            this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+        }
+        this.modeEditorState[mode] = {
+            editorFiles: JSON.parse(JSON.stringify(this.editorFiles)),
+            activeFileName: this.activeFileName,
+            initialParams: JSON.parse(JSON.stringify(this.initialParams)),
+            initialQueue: Array.isArray(this.initialQueue) ? [...this.initialQueue] : this.initialQueue,
+            initialQueueType: this.initialQueueType || 'int'
+        };
+    }
+
+    getDefaultModeState(mode) {
+        if (mode === 'stack') {
+            const code = `// תוכנית ראשית עבור מחסנית Stack<int>
+public class Program
+{
+    public static void Main(Stack<int> s)
+    {
+        
+    }
+}`;
+            return {
+                editorFiles: {
+                    'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                },
+                activeFileName: 'Program.cs',
+                initialParams: { s: [10, 20, 30, 40, 50] },
+                initialQueue: [10, 20, 30, 40, 50],
+                initialQueueType: 'int'
+            };
+        } else if (mode === 'queue') {
+            const code = `// תוכנית ראשית עבור תור Queue<int>
+public class Program
+{
+    public static void Main(Queue<int> q)
+    {
+        
+    }
+}`;
+            return {
+                editorFiles: {
+                    'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                },
+                activeFileName: 'Program.cs',
+                initialParams: { q: [14, 7, 25, 9, 31] },
+                initialQueue: [14, 7, 25, 9, 31],
+                initialQueueType: 'int'
+            };
+        } else if (mode === 'node') {
+            const code = `// תוכנית ראשית עבור שרשרת חוליות Node<int>
+public class Program
+{
+    public static void Main(Node<int> chain)
+    {
+        
+    }
+}`;
+            return {
+                editorFiles: {
+                    'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                },
+                activeFileName: 'Program.cs',
+                initialParams: { chain: [12, 5, 8, 20] },
+                initialQueue: [12, 5, 8, 20],
+                initialQueueType: 'int'
+            };
+        } else if (mode === 'binnode') {
+            const code = `// תוכנית ראשית עבור עץ בינארי BinNode<int>
+public class Program
+{
+    public static void Main(BinNode<int> root)
+    {
+        
+    }
+}`;
+            return {
+                editorFiles: {
+                    'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                },
+                activeFileName: 'Program.cs',
+                initialParams: { root: [10, 5, 15, 3, 7] },
+                initialQueue: [10, 5, 15, 3, 7],
+                initialQueueType: 'int'
+            };
+        } else {
+            // mode === 'all'
+            const code = `// סטודיו מבני נתונים - מצב משולב (תור ומחסנית)
+public class Program
+{
+    public static void Main(Queue<int> q, Stack<int> s)
+    {
+        
+    }
+}`;
+            return {
+                editorFiles: {
+                    'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                },
+                activeFileName: 'Program.cs',
+                initialParams: { q: [14, 7, 25, 9, 31], s: [10, 20, 30, 40, 50] },
+                initialQueue: [14, 7, 25, 9, 31],
+                initialQueueType: 'int'
+            };
+        }
     }
 
     setStudioMode(mode, updateUrl = false) {
@@ -943,6 +1117,8 @@ public class Program
                     this.setStudioMode('stack', true);
                     this.renderEditorTabs();
                 }
+
+                this.saveCurrentModeState();
 
                 if (this.dom.initialQueueInput) {
                     this.dom.initialQueueInput.value = this.formatQueueInputValue(this.initialQueue, this.initialQueueType);
