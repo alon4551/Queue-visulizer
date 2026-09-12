@@ -729,9 +729,9 @@ body {
     border: 1px solid #45475a;
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-    max-width: 580px;
-    min-width: 480px;
-    max-height: 250px;
+    max-width: 620px;
+    min-width: 500px;
+    max-height: 265px;
     overflow: hidden;
     font-family: var(--font-main, system-ui, sans-serif);
     animation: fadeInPopup 0.15s ease-out;
@@ -744,8 +744,8 @@ body {
 
 /* רשימת ההצעות בצד שמאל (LTR) */
 .autocomplete-list {
-    width: 210px;
-    min-width: 190px;
+    width: 235px;
+    min-width: 210px;
     border-right: 1px solid #313244;
     overflow-y: auto;
     background: #181825;

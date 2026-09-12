@@ -141,7 +141,8 @@ class QueueVisualizerApp {
                 () => {
                     this.updateLineNumbers();
                     this.recompile();
-                }
+                },
+                () => this.studioMode
             );
         }
     }
@@ -3754,5 +3755,6 @@ public class Program
 // אתחול בעת טעינת הדף
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new QueueVisualizerApp();
+    window.visualizer = window.app;
     window.app.init();
 });
