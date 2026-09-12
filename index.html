@@ -112,15 +112,20 @@
                             <div class="queue-init-pane-header">
                                 <div class="queue-init-title-box">
                                     <span>📥</span>
-                                    <span id="queue-init-title">משתנה התור ההתחלתי: <code>Queue&lt;int&gt; q</code></span>
+                                    <span id="queue-init-title">משתני ופרמטרי פעולת Main</span>
+                                    <span class="badge badge-active" id="queue-init-badge">קלט פעיל</span>
                                 </div>
-                                <p class="queue-init-desc">הגדרת ערכי התור ההתחלתי שיועברו כארגומנט לפעולה <code>Main</code> בעת תחילת ההרצה.</p>
+                                <p class="queue-init-desc">הגדרת ערכים התחלתיים לכל התורים והמשתנים המועברים כארגומנטים לפעולה <code>Main</code> בעורך.</p>
                             </div>
                             <div class="queue-init-body" id="queue-init-body">
-                                <div class="queue-init-input-row" id="queue-init-row">
-                                    <input type="text" id="initial-queue-input" class="input-text" placeholder="לדוגמה: 14, 7, 25, 9, 31" value="14, 7, 25, 9, 31">
-                                    <button id="btn-set-queue" class="btn btn-primary">עדכן תור</button>
-                                    <button id="btn-random-queue" class="btn btn-secondary">🎲 הגרל ערכים</button>
+                                <div class="queue-params-container" id="queue-params-container">
+                                    <div class="queue-init-input-row" id="queue-init-row">
+                                        <input type="text" id="initial-queue-input" class="input-text" placeholder="לדוגמה: 14, 7, 25, 9, 31" value="14, 7, 25, 9, 31">
+                                    </div>
+                                </div>
+                                <div class="queue-init-actions-bar" id="queue-init-actions-bar">
+                                    <button id="btn-set-queue" class="btn btn-primary">🔄 עדכן נתונים והרץ</button>
+                                    <button id="btn-random-queue" class="btn btn-secondary">🎲 הגרל ערכים לתורים</button>
                                 </div>
                                 <p class="queue-init-hint" id="queue-init-hint">ערכי התור ההתחלתי מועברים ישירות לפעולה <code>Program.Main(Queue&lt;int&gt; q)</code> בעורך.</p>
 
@@ -314,11 +319,25 @@
                             <option value="basic">🔹 בסיסי: Queue&lt;int&gt; (מציאת מקסימום)</option>
                             <option value="chars">🔤 תווים: Queue&lt;char&gt;</option>
                             <option value="strings">📝 מחרוזות: Queue&lt;string&gt;</option>
-                            <option value="class-point">📦 מחלקה מותאמת: Queue&lt;Point&gt;</option>
+                            <option value="class-point">📦 מחלקה מותאמת: Queue&lt;Point&gt; (בלשונית נפרדת)</option>
                             <option value="queue-of-queues">🔄 תור של תורים: Queue&lt;Queue&lt;int&gt;&gt;</option>
+                            <option value="multi-params">👥 מספר תורים ומשתנים: Main(Queue&lt;int&gt; q, Queue&lt;int&gt; r, string tag)</option>
                         </select>
                         <span class="badge">C# בגרות</span>
                         <span class="badge" title="לחץ Ctrl+Space להשלמה אוטומטית בכל עת">Ctrl+Space להשלמה</span>
+                    </div>
+                </div>
+
+                <!-- סרגל לשוניות קבצים ומחלקות (Editor File & Class Tabs) -->
+                <div class="editor-tabs-bar" id="editor-tabs-bar">
+                    <div class="editor-tabs-list" id="editor-tabs-list">
+                        <!-- לשוניות קבצים נטענות באופן דינמי -->
+                    </div>
+                    <div class="editor-tabs-actions">
+                        <button type="button" class="btn-add-class-tab" id="btn-add-class-tab" title="הוסף מחלקה חדשה (Class)">
+                            <span class="btn-add-icon">➕</span>
+                            <span>מחלקה חדשה</span>
+                        </button>
                     </div>
                 </div>
 

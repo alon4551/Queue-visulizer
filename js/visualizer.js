@@ -13,6 +13,24 @@ class QueueVisualizerApp {
         this.speedMs = 800; // ברירת מחדל
         this.initialQueueType = 'int'; // 'int', 'char', 'string'
         this.initialQueue = [14, 7, 25, 9, 31];
+        this.initialParams = { q: [14, 7, 25, 9, 31] };
+
+        // ניהול קבצי מחלקות בלשוניות (Class & File Tabs)
+        this.editorFiles = {
+            'Program.cs': {
+                name: 'Program.cs',
+                isMain: true,
+                canDelete: false,
+                code: `public class Program
+{
+    public static void Main(Queue<int> q)
+    {
+        
+    }
+}`
+            }
+        };
+        this.activeFileName = 'Program.cs';
 
         this.dom = {};
     }
@@ -20,16 +38,14 @@ class QueueVisualizerApp {
     init() {
         this.cacheDom();
         this.bindEvents();
+        this.setupEditorTabs();
+        this.renderEditorTabs();
         this.setupWindowResizers();
         this.setupQueueDragging();
-        this.dom.initialQueueInput.value = this.initialQueue.join(', ');
-        this.dom.codeTextarea.value = `public class Program
-{
-    public static void Main(Queue<int> q)
-    {
-        
-    }
-}`;
+        if (this.dom.initialQueueInput) {
+            this.dom.initialQueueInput.value = this.initialQueue.join(', ');
+        }
+        this.dom.codeTextarea.value = this.editorFiles[this.activeFileName].code;
         this.updateLineNumbers();
         this.recompile();
     }
@@ -38,6 +54,12 @@ class QueueVisualizerApp {
         this.dom.initialQueueInput = document.getElementById('initial-queue-input');
         this.dom.btnSetQueue = document.getElementById('btn-set-queue');
         this.dom.btnRandomQueue = document.getElementById('btn-random-queue');
+
+        this.dom.editorTabsBar = document.getElementById('editor-tabs-bar');
+        this.dom.editorTabsList = document.getElementById('editor-tabs-list');
+        this.dom.btnAddClassTab = document.getElementById('btn-add-class-tab');
+        this.dom.queueParamsContainer = document.getElementById('queue-params-container');
+        this.dom.queueInitActionsBar = document.getElementById('queue-init-actions-bar');
 
         this.dom.codeTextarea = document.getElementById('code-textarea');
         this.dom.codeHighlighter = document.getElementById('code-highlighter');
@@ -119,24 +141,26 @@ class QueueVisualizerApp {
             if (this.switchQueueTab) this.switchQueueTab('queue-view');
         });
 
-        this.dom.initialQueueInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                this.updateQueueFromInput();
-                if (this.switchQueueTab) this.switchQueueTab('queue-view');
-            }
-        });
+        if (this.dom.initialQueueInput) {
+            this.dom.initialQueueInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    this.updateQueueFromInput();
+                    if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                }
+            });
+        }
 
-        // הגרלת ערכים לתור בהתאם לטיפוס הפעיל
+        // הגרלת ערכים לכל התורים המוגדרים
         this.dom.btnRandomQueue.addEventListener('click', () => {
-            const randItems = this.generateRandomQueue(this.initialQueueType);
-            this.initialQueue = randItems;
-            this.dom.initialQueueInput.value = this.formatQueueInputValue(randItems, this.initialQueueType);
-            this.recompile();
+            this.randomizeAllQueues();
             if (this.switchQueueTab) this.switchQueueTab('queue-view');
         });
 
         // עריכת קוד ידנית
         this.dom.codeTextarea.addEventListener('input', () => {
+            if (this.editorFiles && this.editorFiles[this.activeFileName]) {
+                this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+            }
             this.updateLineNumbers();
             this.recompile();
             if (this.autocomplete) {
@@ -444,7 +468,7 @@ class QueueVisualizerApp {
                 if (!choice) return;
 
                 if (choice === 'basic') {
-                    this.dom.codeTextarea.value = `// מציאת ערך מקסימלי בתור של מספרים
+                    const code = `// מציאת ערך מקסימלי בתור של מספרים
 public class Program
 {
     public static int FindMax(Queue<int> q)
@@ -478,10 +502,17 @@ public class Program
         int max = FindMax(q);
     }
 }`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
                     this.initialQueueType = 'int';
                     this.initialQueue = [14, 7, 25, 9, 31];
+                    this.initialParams = { q: [14, 7, 25, 9, 31] };
+                    this.renderEditorTabs();
                 } else if (choice === 'chars') {
-                    this.dom.codeTextarea.value = `// ספירת מופעים של תו מסוים בתור של תווים
+                    const code = `// ספירת מופעים של תו מסוים בתור של תווים
 public class Program
 {
     public static int CountChar(Queue<char> q, char target)
@@ -514,10 +545,17 @@ public class Program
         CountChar(q, 'a');
     }
 }`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
                     this.initialQueueType = 'char';
                     this.initialQueue = ['a', 'b', 'a', 'c', 'a', 'd'];
+                    this.initialParams = { q: ['a', 'b', 'a', 'c', 'a', 'd'] };
+                    this.renderEditorTabs();
                 } else if (choice === 'strings') {
-                    this.dom.codeTextarea.value = `// שרשור שמות מתור של מחרוזות
+                    const code = `// שרשור שמות מתור של מחרוזות
 public class Program
 {
     public static string JoinNames(Queue<string> q)
@@ -547,10 +585,17 @@ public class Program
         JoinNames(q);
     }
 }`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
                     this.initialQueueType = 'string';
                     this.initialQueue = ['Dana', 'Alon', 'Maya', 'Noam'];
+                    this.initialParams = { q: ['Dana', 'Alon', 'Maya', 'Noam'] };
+                    this.renderEditorTabs();
                 } else if (choice === 'class-point') {
-                    this.dom.codeTextarea.value = `// מחלקה מותאמת אישית עם שדות private, פעולות Get/Set ומאפיין C# Property
+                    const pointCode = `// מחלקה מותאמת אישית Point (בלשונית ייעודית נפרדת)
 public class Point
 {
     private int x;
@@ -584,8 +629,9 @@ public class Point
     {
         return "(" + this.x + ", " + this.y + ")";
     }
-}
+}`;
 
+                    const programCode = `// פעולת כניסה ראשית Program המשתמשת במחלקה Point מקובץ Point.cs
 public class Program
 {
     public static void Main(Queue<Point> q)
@@ -611,10 +657,18 @@ public class Program
         }
     }
 }`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code: programCode },
+                        'Point.cs': { name: 'Point.cs', className: 'Point', isMain: false, canDelete: true, code: pointCode }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = programCode;
                     this.initialQueueType = 'Point';
                     this.initialQueue = [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }];
+                    this.initialParams = { q: this.initialQueue };
+                    this.renderEditorTabs();
                 } else if (choice === 'queue-of-queues') {
-                    this.dom.codeTextarea.value = `// עבודה עם תור של תורים Queue<Queue<int>>
+                    const code = `// עבודה עם תור של תורים Queue<Queue<int>>
 public class Program
 {
     public static void Main(Queue<Queue<int>> superQ)
@@ -657,8 +711,47 @@ public class Program
         Console.WriteLine("סכום כולל של כל התורים: " + grandTotal);
     }
 }`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
                     this.initialQueueType = 'Queue<int>';
                     this.initialQueue = [[10, 20], [30, 40, 50], [60]];
+                    this.initialParams = { superQ: [[10, 20], [30, 40, 50], [60]] };
+                    this.renderEditorTabs();
+                } else if (choice === 'multi-params') {
+                    const code = `// דוגמה עם שני תורים ומשתנים מרובים המועברים לפעולה Main
+public class Program
+{
+    public static void Main(Queue<int> q, Queue<int> r, string tag)
+    {
+        Console.WriteLine("התחלת עיבוד עבור תגית: " + tag);
+
+        // העברת איברים מ-q ל-r עם הכפלה
+        while (!q.IsEmpty())
+        {
+            int item = q.Remove();
+            Console.WriteLine("מעביר מ-q: " + item + " -> מכניס ל-r: " + (item * 2));
+            r.Insert(item * 2);
+        }
+
+        Console.WriteLine("סיום העברה! תור r מכיל כעת את כל הערכים המוכפלים.");
+    }
+}`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
+                    this.initialQueueType = 'int';
+                    this.initialQueue = [14, 7, 25, 9, 31];
+                    this.initialParams = {
+                        q: [14, 7, 25, 9, 31],
+                        r: [100, 200],
+                        tag: "מיזוג-נתונים"
+                    };
+                    this.renderEditorTabs();
                 }
 
                 if (this.dom.initialQueueInput) {
@@ -669,6 +762,197 @@ public class Program
                 if (this.switchQueueTab) this.switchQueueTab('queue-view');
                 e.target.value = '';
             });
+        }
+    }
+
+    setupEditorTabs() {
+        if (this.dom.btnAddClassTab) {
+            this.dom.btnAddClassTab.addEventListener('click', () => {
+                this.showNewClassInlineForm();
+            });
+        }
+    }
+
+    renderEditorTabs() {
+        if (!this.dom.editorTabsList) return;
+        this.dom.editorTabsList.innerHTML = '';
+
+        const fileNames = Object.keys(this.editorFiles);
+        fileNames.forEach(file => {
+            const fileData = this.editorFiles[file];
+            const tabItem = document.createElement('div');
+            tabItem.className = `editor-tab-item ${file === this.activeFileName ? 'active' : ''}`;
+            tabItem.dataset.fileName = file;
+
+            const icon = fileData.isMain ? '⚡' : '📄';
+            let closeBtnHtml = '';
+            if (fileData.canDelete && !fileData.isMain) {
+                closeBtnHtml = `<button type="button" class="editor-tab-close" data-file-name="${file}" title="מחק קובץ מחלקה זה">✕</button>`;
+            }
+
+            tabItem.innerHTML = `
+                <span class="editor-tab-icon">${icon}</span>
+                <span class="editor-tab-name">${file}</span>
+                ${closeBtnHtml}
+            `;
+
+            tabItem.addEventListener('click', (e) => {
+                if (e.target.closest('.editor-tab-close')) return;
+                this.switchEditorTab(file);
+            });
+
+            if (fileData.canDelete) {
+                const closeBtn = tabItem.querySelector('.editor-tab-close');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.deleteClassFile(file);
+                    });
+                }
+            }
+
+            this.dom.editorTabsList.appendChild(tabItem);
+        });
+    }
+
+    showNewClassInlineForm() {
+        const existing = document.getElementById('new-tab-inline-form');
+        if (existing) {
+            const inp = existing.querySelector('input');
+            if (inp) inp.focus();
+            return;
+        }
+
+        const form = document.createElement('div');
+        form.id = 'new-tab-inline-form';
+        form.className = 'new-tab-inline-form';
+        form.innerHTML = `
+            <input type="text" placeholder="שם מחלקה (באנגלית)" autofocus />
+            <button type="button" class="btn-tab-confirm" title="צור מחלקה">✓</button>
+            <button type="button" class="btn-tab-cancel" title="ביטול">✕</button>
+        `;
+
+        this.dom.editorTabsList.appendChild(form);
+        const input = form.querySelector('input');
+        const confirmBtn = form.querySelector('.btn-tab-confirm');
+        const cancelBtn = form.querySelector('.btn-tab-cancel');
+
+        const handleCreate = () => {
+            let val = input.value.trim();
+            if (!val) {
+                form.remove();
+                return;
+            }
+            if (val.endsWith('.cs')) val = val.substring(0, val.length - 3).trim();
+            if (!/^[a-zA-Z_]\w*$/.test(val)) {
+                this.showInputError('שם מחלקה חייב להתחיל באות או קו תחתון באנגלית ולהכיל אותיות ומספרים בלבד (למשל Student, Car, Point).');
+                input.focus();
+                return;
+            }
+            form.remove();
+            this.addNewClassFile(val);
+        };
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleCreate();
+            else if (e.key === 'Escape') form.remove();
+        });
+        confirmBtn.addEventListener('click', handleCreate);
+        cancelBtn.addEventListener('click', () => form.remove());
+        input.focus();
+    }
+
+    addNewClassFile(className, customCode = null) {
+        const fileName = `${className}.cs`;
+        if (this.editorFiles[fileName]) {
+            this.switchEditorTab(fileName);
+            return;
+        }
+
+        const defaultCode = customCode || `public class ${className}
+{
+    // הגדרת תכונות/שדות (Fields)
+    private int id;
+
+    // פעולה בונה (Constructor)
+    public ${className}(int id)
+    {
+        this.id = id;
+    }
+
+    // Getters & Setters
+    public int GetId()
+    {
+        return this.id;
+    }
+
+    public void SetId(int id)
+    {
+        this.id = id;
+    }
+
+    public override string ToString()
+    {
+        return "${className}(" + this.id + ")";
+    }
+}
+`;
+
+        if (this.editorFiles[this.activeFileName]) {
+            this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+        }
+
+        this.editorFiles[fileName] = {
+            name: fileName,
+            className: className,
+            isMain: false,
+            canDelete: true,
+            code: defaultCode
+        };
+
+        this.activeFileName = fileName;
+        this.dom.codeTextarea.value = defaultCode;
+        this.updateLineNumbers();
+        this.renderEditorTabs();
+        this.recompile();
+    }
+
+    deleteClassFile(fileName) {
+        if (fileName === 'Program.cs') return;
+        delete this.editorFiles[fileName];
+
+        if (this.activeFileName === fileName) {
+            this.activeFileName = 'Program.cs';
+            this.dom.codeTextarea.value = this.editorFiles['Program.cs'].code;
+            this.updateLineNumbers();
+        }
+
+        this.renderEditorTabs();
+        this.recompile();
+    }
+
+    switchEditorTab(fileName) {
+        if (!this.editorFiles[fileName]) return;
+        if (this.activeFileName === fileName) return;
+
+        // שמירת תוכן העורך לקובץ הקודם
+        if (this.editorFiles[this.activeFileName]) {
+            this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+        }
+
+        this.activeFileName = fileName;
+        this.dom.codeTextarea.value = this.editorFiles[fileName].code;
+        this.updateLineNumbers();
+        this.renderEditorTabs();
+
+        // הדגשת שורה עדכנית אם הצעד הנוכחי שייך לקובץ זה
+        if (this.frames && this.frames[this.currentFrameIdx]) {
+            const f = this.frames[this.currentFrameIdx];
+            if ((f.file || 'Program.cs') === fileName) {
+                this.renderEditorHighlight(f.line, Boolean(f.error));
+            } else {
+                this.renderEditorHighlight(0, false);
+            }
         }
     }
 
@@ -1060,15 +1344,98 @@ public class Program
         this.updateQueueFromInput();
     }
 
-    updateQueueFromInput() {
-        try {
-            const parsed = this.parseQueueInput(this.dom.initialQueueInput.value, this.initialQueueType);
-            if (parsed.length > 0) {
-                this.initialQueue = parsed;
-                this.recompile();
-            } else {
-                this.showInputError('אנא הזן לפחות איבר אחד לתור ההתחלתי.');
+    randomizeAllQueues() {
+        if (!this.dom.queueParamsContainer) return;
+        const inputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-queue="true"]');
+        if (inputs.length === 0) {
+            const randItems = this.generateRandomQueue(this.initialQueueType);
+            this.initialQueue = randItems;
+            this.initialParams['q'] = randItems;
+            if (this.dom.initialQueueInput) {
+                this.dom.initialQueueInput.value = this.formatQueueInputValue(randItems, this.initialQueueType);
             }
+            this.recompile();
+            return;
+        }
+
+        inputs.forEach(input => {
+            const name = input.dataset.paramName;
+            const pType = input.dataset.paramType || 'Queue<int>';
+            const match = pType.match(/^Queue<(.+)>$/);
+            const qType = match ? match[1].trim() : (this.initialQueueType || 'int');
+
+            const randItems = this.generateRandomQueue(qType);
+            this.initialParams[name] = randItems;
+            if (input.id === 'initial-queue-input' || name === 'q') {
+                this.initialQueue = randItems;
+                this.initialQueueType = qType;
+            }
+            input.value = this.formatQueueInputValue(randItems, qType);
+        });
+
+        this.recompile();
+    }
+
+    updateQueueFromInput() {
+        if (!this.dom.queueParamsContainer) return;
+        const inputs = this.dom.queueParamsContainer.querySelectorAll('.param-input');
+        if (inputs.length === 0) {
+            if (this.dom.initialQueueInput) {
+                try {
+                    const parsed = this.parseQueueInput(this.dom.initialQueueInput.value, this.initialQueueType);
+                    if (parsed.length > 0) {
+                        this.initialQueue = parsed;
+                        this.initialParams['q'] = parsed;
+                        this.recompile();
+                    } else {
+                        this.showInputError('אנא הזן לפחות איבר אחד לתור ההתחלתי.');
+                    }
+                } catch (err) {
+                    this.showInputError(err.message);
+                }
+            }
+            return;
+        }
+
+        try {
+            inputs.forEach(input => {
+                const name = input.dataset.paramName;
+                const isQueue = input.dataset.isQueue === 'true';
+                const pType = input.dataset.paramType || '';
+
+                if (isQueue) {
+                    const match = pType.match(/^Queue<(.+)>$/);
+                    const qType = match ? match[1].trim() : (this.initialQueueType || 'int');
+                    const parsed = this.parseQueueInput(input.value, qType);
+                    if (parsed.length === 0) {
+                        throw new Error(`אנא הזן לפחות איבר אחד לתור ${name}.`);
+                    }
+                    this.initialParams[name] = parsed;
+                    if (input.id === 'initial-queue-input' || name === 'q') {
+                        this.initialQueue = parsed;
+                        this.initialQueueType = qType;
+                    }
+                } else {
+                    let val = input.value.trim();
+                    if (pType === 'int') {
+                        val = parseInt(val, 10);
+                        if (isNaN(val)) val = 0;
+                    } else if (pType === 'double' || pType === 'float') {
+                        val = parseFloat(val);
+                        if (isNaN(val)) val = 0.0;
+                    } else if (pType === 'bool') {
+                        val = (val.toLowerCase() === 'true');
+                    } else if (pType === 'char') {
+                        val = val.replace(/^'|'$/g, '');
+                        val = val.length > 0 ? val[0] : ' ';
+                    } else if (pType === 'string') {
+                        val = val.replace(/^"|"$/g, '');
+                    }
+                    this.initialParams[name] = val;
+                }
+            });
+
+            this.recompile();
         } catch (err) {
             this.showInputError(err.message);
         }
@@ -1095,23 +1462,28 @@ public class Program
 
     recompile() {
         this.pause();
-        const code = this.dom.codeTextarea.value;
-        let result = this.interpreter.run(code, this.initialQueue);
+        if (this.editorFiles && this.editorFiles[this.activeFileName]) {
+            this.editorFiles[this.activeFileName].code = this.dom.codeTextarea.value;
+        }
 
-        // עדכון כרטיס התור ההתחלתי בהתאם לזיהוי פרמטר Queue בארגומנטים
+        const codeFiles = {};
+        for (const [name, fObj] of Object.entries(this.editorFiles)) {
+            codeFiles[name] = fObj.code;
+        }
+
+        let result = this.interpreter.run(codeFiles, this.initialParams);
+
+        // עדכון כרטיס תור ופרמטרים
         const typeChanged = this.updateQueueInitUI(result);
 
-        // אם הטיפוס השתנה (למשל המשתמש שינה את קוד ה-Main לקבל Queue<Student>),
-        // updateQueueInitUI מעדכן את this.initialQueue לסוג החדש.
-        // לכן אנו מריצים מחדש את האינטרפרטר עם התור המעודכן!
         if (typeChanged) {
-            result = this.interpreter.run(code, this.initialQueue);
+            result = this.interpreter.run(codeFiles, this.initialParams);
         }
 
         this.frames = result.frames;
         this.currentFrameIdx = 0;
 
-        this.renderCurrentFrame();
+        this.renderCurrentFrame({ followFile: false });
     }
 
     updateQueueInitUI(result) {
@@ -1127,89 +1499,209 @@ public class Program
 
         let typeChanged = false;
 
-        if (result && result.hasInitialQueue) {
+        if (result && result.params && result.params.length > 0) {
             this.dom.queueInitCard.classList.remove('inactive');
-            const qName = result.initialQueueName || 'q';
-            const qType = result.initialQueueType || 'int';
 
-            // עדכון הכרטיסייה הפעילה במדריך הפורמט
-            let targetCardId = 'format-card-int';
-            if (this.isCustomClassType(qType)) {
-                targetCardId = 'format-card-point';
-                const pointCardTag = document.querySelector('#format-card-point .format-tag');
-                if (pointCardTag) {
-                    pointCardTag.textContent = `Queue<${qType}>`;
+            // עדכון הכרטיסייה הפעילה במדריך הפורמט לפי התור הראשון
+            const primaryQueueParam = result.params.find(p => p.isQueue);
+            if (primaryQueueParam) {
+                const qType = primaryQueueParam.itemType || 'int';
+
+                let targetCardId = 'format-card-int';
+                if (this.isCustomClassType(qType)) {
+                    targetCardId = 'format-card-point';
+                    const pointCardTag = document.querySelector('#format-card-point .format-tag');
+                    if (pointCardTag) {
+                        pointCardTag.textContent = `Queue<${qType}>`;
+                    }
+                } else if (qType.startsWith('Queue')) {
+                    targetCardId = 'format-card-queue-of-queues';
+                } else if (qType === 'char' || qType === 'string') {
+                    targetCardId = 'format-card-char-string';
                 }
-            } else if (qType.startsWith('Queue')) {
-                targetCardId = 'format-card-queue-of-queues';
-            } else if (qType === 'char' || qType === 'string') {
-                targetCardId = 'format-card-char-string';
+
+                const activeCard = document.getElementById(targetCardId);
+                if (activeCard) {
+                    activeCard.classList.add('active-type');
+                    const ind = document.createElement('span');
+                    ind.className = 'format-active-indicator';
+                    ind.innerHTML = '⚡ הטיפוס הנוכחי בקוד';
+                    const header = activeCard.querySelector('.format-card-header');
+                    if (header) {
+                        header.appendChild(ind);
+                    }
+                }
+
+                if (qType !== this.initialQueueType) {
+                    this.initialQueueType = qType;
+                    typeChanged = true;
+                }
             }
 
-            const activeCard = document.getElementById(targetCardId);
-            if (activeCard) {
-                activeCard.classList.add('active-type');
-                const ind = document.createElement('span');
-                ind.className = 'format-active-indicator';
-                ind.innerHTML = '⚡ הטיפוס הנוכחי בקוד';
-                const header = activeCard.querySelector('.format-card-header');
-                if (header) {
-                    header.appendChild(ind);
-                }
-            }
+            // עדכון כרטיסיות פרמטרים בחלון הקלט
+            if (this.dom.queueParamsContainer) {
+                this.dom.queueParamsContainer.innerHTML = '';
 
-            // אם הטיפוס השתנה בקוד (למשל מ-int ל-char, string, Student, Point או Queue<T>)
-            if (qType !== this.initialQueueType) {
-                this.initialQueueType = qType;
-                typeChanged = true;
-                this.initialQueue = this.generateRandomQueue(qType);
-                if (this.dom.initialQueueInput) {
-                    this.dom.initialQueueInput.value = this.formatQueueInputValue(this.initialQueue, qType);
-                }
+                let queueCount = 0;
+                result.params.forEach((param, pIdx) => {
+                    const card = document.createElement('div');
+                    card.className = 'param-init-card';
+                    card.dataset.paramName = param.name;
+
+                    if (param.isQueue) {
+                        queueCount++;
+                        const qType = param.itemType || 'int';
+
+                        if (!this.initialParams[param.name]) {
+                            if (pIdx === 0 && this.initialQueue && this.initialQueue.length > 0) {
+                                this.initialParams[param.name] = this.initialQueue;
+                            } else {
+                                this.initialParams[param.name] = this.generateRandomQueue(qType);
+                                typeChanged = true;
+                            }
+                        }
+
+                        if (pIdx === 0) {
+                            this.initialQueue = this.initialParams[param.name];
+                            this.initialQueueType = qType;
+                        }
+
+                        let typeHeb = 'מספרים שלמים int';
+                        let placeholder = 'לדוגמה: 14, 7, 25, 9, 31';
+                        if (qType === 'char') {
+                            typeHeb = "תווים char (למשל: 'a', 'b', 'c')";
+                            placeholder = "לדוגמה: 'a', 'b', 'c', 'd'";
+                        } else if (qType === 'string') {
+                            typeHeb = 'מחרוזות string (למשל: "Dana", "Alon")';
+                            placeholder = 'לדוגמה: "Dana", "Alon", "Maya"';
+                        } else if (qType === 'Point') {
+                            typeHeb = 'נקודות Point (למשל: (10, 20), (30, 40))';
+                            placeholder = 'לדוגמה: (10, 20), (30, 40), (50, 60)';
+                        } else if (this.isCustomClassType(qType)) {
+                            typeHeb = `אובייקטים מסוג ${qType}`;
+                            placeholder = 'לדוגמה: (1, 10), (2, 20)';
+                        } else if (qType.startsWith('Queue')) {
+                            typeHeb = 'תור מקונן של תורים';
+                            placeholder = 'לדוגמה: [10, 20], [30, 40]';
+                        }
+
+                        const isFirstQueue = (queueCount === 1);
+                        const inputId = isFirstQueue ? 'id="initial-queue-input"' : '';
+                        const rowId = isFirstQueue ? 'id="queue-init-row"' : '';
+                        const formattedVal = this.formatQueueInputValue(this.initialParams[param.name], qType);
+
+                        card.innerHTML = `
+                            <div class="param-init-header">
+                                <span class="param-init-title">📥 תור: <code>Queue&lt;${qType}&gt; ${param.name}</code></span>
+                                <span class="param-badge badge-queue">תור ${qType}</span>
+                            </div>
+                            <div class="param-init-row" ${rowId}>
+                                <input type="text" ${inputId} class="input-text param-input" data-param-name="${param.name}" data-param-type="${param.type}" data-is-queue="true" placeholder="${placeholder}" value="${formattedVal}" />
+                                <button type="button" class="btn btn-secondary btn-random-single-queue" data-param-name="${param.name}" title="🎲 הגרל ערכים לתור ${param.name} בלבד">🎲</button>
+                            </div>
+                            <p class="param-init-hint">ערכי התור (${typeHeb}) מועברים כפרמטר <code>${param.name}</code> לפעולה Main.</p>
+                        `;
+
+                        const inputEl = card.querySelector('.param-input');
+                        inputEl.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                this.updateQueueFromInput();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            }
+                        });
+
+                        const singleRandBtn = card.querySelector('.btn-random-single-queue');
+                        if (singleRandBtn) {
+                            singleRandBtn.addEventListener('click', () => {
+                                const newItems = this.generateRandomQueue(qType);
+                                this.initialParams[param.name] = newItems;
+                                if (isFirstQueue) {
+                                    this.initialQueue = newItems;
+                                }
+                                inputEl.value = this.formatQueueInputValue(newItems, qType);
+                                this.recompile();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            });
+                        }
+                    } else {
+                        // Primitive variable
+                        const pType = param.type || 'int';
+                        if (this.initialParams[param.name] === undefined) {
+                            if (pType === 'string') this.initialParams[param.name] = 'hello';
+                            else if (pType === 'char') this.initialParams[param.name] = 'a';
+                            else if (pType === 'bool') this.initialParams[param.name] = true;
+                            else this.initialParams[param.name] = 10;
+                        }
+
+                        let badgeClass = 'badge-int';
+                        let placeholder = '10';
+                        if (pType === 'string') {
+                            badgeClass = 'badge-string';
+                            placeholder = 'טקסט מחרוזת';
+                        } else if (pType === 'char') {
+                            badgeClass = 'badge-char';
+                            placeholder = "'a'";
+                        } else if (pType === 'bool') {
+                            badgeClass = 'badge-int';
+                            placeholder = 'true / false';
+                        }
+
+                        const rawVal = this.initialParams[param.name] !== undefined ? this.initialParams[param.name] : placeholder;
+                        card.innerHTML = `
+                            <div class="param-init-header">
+                                <span class="param-init-title">🏷️ משתנה: <code>${pType} ${param.name}</code></span>
+                                <span class="param-badge ${badgeClass}">${pType}</span>
+                            </div>
+                            <div class="param-init-row">
+                                <input type="text" class="input-text param-input" data-param-name="${param.name}" data-param-type="${pType}" data-is-queue="false" placeholder="${placeholder}" value="${rawVal}" />
+                            </div>
+                            <p class="param-init-hint">ערך התחלתי שיועבר כפרמטר <code>${param.name}</code> לפעולה Main.</p>
+                        `;
+
+                        const inputEl = card.querySelector('.param-input');
+                        inputEl.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                this.updateQueueFromInput();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            }
+                        });
+                    }
+
+                    this.dom.queueParamsContainer.appendChild(card);
+                });
+
+                this.dom.initialQueueInput = document.getElementById('initial-queue-input');
+                this.dom.queueInitRow = document.getElementById('queue-init-row');
             }
 
             if (this.dom.queueInitTitle) {
-                this.dom.queueInitTitle.innerHTML = `משתנה התור ההתחלתי: <code>Queue&lt;${qType}&gt; ${qName}</code>`;
+                this.dom.queueInitTitle.innerHTML = `משתני ופרמטרי פעולת Main (${result.params.length})`;
             }
             if (this.dom.queueInitBadge) {
-                this.dom.queueInitBadge.textContent = `קלט פעיל ל-${qName} (${qType})`;
+                this.dom.queueInitBadge.textContent = `קלט פעיל ל-${result.params.map(p => p.name).join(', ')}`;
                 this.dom.queueInitBadge.className = 'badge badge-active';
             }
             if (this.dom.queueInitHint) {
-                let typeHeb = 'מספרים שלמים int';
-                if (qType === 'char') typeHeb = "תווים יחידים char (למשל: 'a', 'b', 'c')";
-                else if (qType === 'string') typeHeb = 'מחרוזות string (למשל: "hello", "world")';
-                else if (qType === 'Point') typeHeb = 'נקודות Point (למשל: (10, 20), (30, 40))';
-                else if (this.isCustomClassType(qType)) typeHeb = `אובייקטים מסוג ${qType} (למשל: בסוגריים עגולים עם שדות המחלקה)`;
-                else if (qType.startsWith('Queue')) typeHeb = 'תור מקונן של תורים (למשל: [10, 20], [30, 40])';
-                this.dom.queueInitHint.innerHTML = `ערכי התור ההתחלתי (${typeHeb}) מועברים ישירות כפרמטר <code>${qName}</code> לפעולת הכניסה בעורך.`;
+                this.dom.queueInitHint.innerHTML = `הערכים מועברים ישירות כארגומנטים לפעולת הכניסה <code>Main(${result.params.map(p => `${p.type} ${p.name}`).join(', ')})</code>.`;
             }
-            if (this.dom.initialQueueInput) {
-                this.dom.initialQueueInput.disabled = false;
-                if (qType === 'char') this.dom.initialQueueInput.placeholder = "לדוגמה: 'a', 'b', 'c', 'd' או a, b, c, d";
-                else if (qType === 'string') this.dom.initialQueueInput.placeholder = 'לדוגמה: "Dana", "Alon", "Ron" או Dana, Alon, Ron';
-                else if (qType === 'Point') this.dom.initialQueueInput.placeholder = 'לדוגמה: (10, 20), (30, 40), (50, 60)';
-                else if (this.isCustomClassType(qType)) {
-                    const sampleFormat = this.formatQueueInputValue(this.initialQueue, qType);
-                    this.dom.initialQueueInput.placeholder = `לדוגמה: ${sampleFormat || '(...) , (...)'}`;
-                } else if (qType.startsWith('Queue')) this.dom.initialQueueInput.placeholder = 'לדוגמה: [10, 20], [30, 40], [50, 60]';
-                else this.dom.initialQueueInput.placeholder = "לדוגמה: 14, 7, 25, 9, 31";
-            }
+
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = false;
             if (this.dom.btnRandomQueue) this.dom.btnRandomQueue.disabled = false;
         } else {
             this.dom.queueInitCard.classList.add('inactive');
+            if (this.dom.queueParamsContainer) {
+                this.dom.queueParamsContainer.innerHTML = '<p class="queue-init-desc" style="margin: 0.5rem 0;">💡 פעולת Main אינה מקבלת פרמטרים. תורים חדשים ייווצרו ויוצגו בעת שימוש ב-<code>new Queue&lt;T&gt;()</code> בקוד.</p>';
+            }
             if (this.dom.queueInitTitle) {
                 this.dom.queueInitTitle.innerHTML = `משתנה תור התחלתי`;
             }
             if (this.dom.queueInitBadge) {
-                this.dom.queueInitBadge.textContent = `לא נדרש (אין פרמטר Queue)`;
+                this.dom.queueInitBadge.textContent = `לא נדרש (אין פרמטרים)`;
                 this.dom.queueInitBadge.className = 'badge badge-inactive';
             }
             if (this.dom.queueInitHint) {
                 this.dom.queueInitHint.innerHTML = `💡 פעולת הכניסה אינה מקבלת פרמטר תור. תורים חדשים ייווצרו ויוצגו בחלון ההמחשה בעת שימוש ב-<code>new Queue&lt;T&gt;()</code> בקוד.`;
             }
-            if (this.dom.initialQueueInput) this.dom.initialQueueInput.disabled = true;
             if (this.dom.btnSetQueue) this.dom.btnSetQueue.disabled = true;
             if (this.dom.btnRandomQueue) this.dom.btnRandomQueue.disabled = true;
         }
@@ -1217,7 +1709,7 @@ public class Program
         return typeChanged;
     }
 
-    renderCurrentFrame() {
+    renderCurrentFrame(options = {}) {
         if (!this.frames || this.frames.length === 0) return;
 
         const frame = this.frames[this.currentFrameIdx];
@@ -1234,8 +1726,19 @@ public class Program
             this.pause();
         }
 
-        // 3. הדגשת שורה בעורך הקוד
-        this.renderEditorHighlight(frame.line, Boolean(frame.error));
+        // מעבר אוטומטי ללשונית הקובץ המתאים לפי הצעד הנוכחי רק בעת ניגון/צעד מפורש
+        const frameFile = frame.file || 'Program.cs';
+        const shouldFollow = options.followFile === true || (options.followFile !== false && this.isPlaying);
+        if (shouldFollow && frameFile !== this.activeFileName && this.editorFiles[frameFile]) {
+            this.switchEditorTab(frameFile);
+        }
+
+        // 3. הדגשת שורה בעורך הקוד (רק אם השורה שייכת לקובץ הפעיל כרגע)
+        if (frameFile === this.activeFileName) {
+            this.renderEditorHighlight(frame.line, Boolean(frame.error));
+        } else {
+            this.renderEditorHighlight(null, false);
+        }
 
         // 4. עדכון סרגל משוב פדגוגי בעברית
         this.renderStatusBanner(frame);
@@ -1545,10 +2048,21 @@ public class Program
         });
     }
 
+    escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     renderConsole(consoleOutputs) {
         if (!this.dom.consoleOutput) return;
 
         const outputs = consoleOutputs || [];
+
         if (this.dom.consoleCountBadge) {
             this.dom.consoleCountBadge.textContent = outputs.length === 1 ? 'שורה 1' : `${outputs.length} שורות`;
         }
@@ -1579,14 +2093,14 @@ public class Program
     stepNext() {
         if (this.currentFrameIdx < this.frames.length - 1) {
             this.currentFrameIdx++;
-            this.renderCurrentFrame();
+            this.renderCurrentFrame({ followFile: true });
         }
     }
 
     stepPrev() {
         if (this.currentFrameIdx > 0) {
             this.currentFrameIdx--;
-            this.renderCurrentFrame();
+            this.renderCurrentFrame({ followFile: true });
         }
     }
 

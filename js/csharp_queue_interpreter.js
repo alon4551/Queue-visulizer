@@ -42,15 +42,17 @@ class CSharpQueueInterpreter {
         } catch (err) {
             if (!this.classes) this.classes = new Map();
             const errorLine = err.line || 1;
+            const errorFile = err.file || (runtime ? runtime.currentFile : 'Program.cs') || 'Program.cs';
             const existingFrames = (runtime && runtime.frames && runtime.frames.length > 0) ? runtime.frames : [];
             const lastFrame = existingFrames.length > 0 ? existingFrames[existingFrames.length - 1] : null;
 
             existingFrames.push({
                 step: existingFrames.length,
                 line: errorLine,
+                file: errorFile,
                 description: `❌ שגיאת ריצה: ${err.message}`,
-                callStack: lastFrame ? lastFrame.callStack : [{ funcName: 'שגיאה', line: errorLine, variables: {} }],
-                queues: lastFrame ? lastFrame.queues : [{ name: 'q', items: [...initialQueueValues], op: 'none' }],
+                callStack: lastFrame ? lastFrame.callStack : [{ funcName: 'שגיאה', line: errorLine, file: errorFile, variables: {} }],
+                queues: lastFrame ? lastFrame.queues : [{ name: 'q', items: [...(Array.isArray(initialQueueValues) ? initialQueueValues : (initialQueueValues && initialQueueValues.q ? initialQueueValues.q : []))], op: 'none' }],
                 variables: lastFrame ? lastFrame.variables : {},
                 consoleOutputs: lastFrame && lastFrame.consoleOutputs ? [...lastFrame.consoleOutputs] : [],
                 error: err.message,
@@ -61,6 +63,7 @@ class CSharpQueueInterpreter {
             return {
                 frames: existingFrames,
                 error: err.message,
+                errorFile,
                 originalPreserved: false
             };
         }
@@ -70,53 +73,67 @@ class CSharpQueueInterpreter {
      * חלוקה לטוקנים תוך שמירה על מספרי שורות מקוריים
      */
     preprocess(code) {
-        const rawLines = code.split(/\r?\n/);
+        let fileList = [];
+        if (typeof code === 'string') {
+            fileList.push({ fileName: 'Program.cs', code: code });
+        } else if (Array.isArray(code)) {
+            fileList = code;
+        } else if (code && typeof code === 'object') {
+            for (const [name, content] of Object.entries(code)) {
+                fileList.push({ fileName: name, code: content });
+            }
+        }
+
         const lineMap = []; // index -> originalLineNumber
         const tokens = [];
 
-        let inBlockComment = false;
+        for (const fileObj of fileList) {
+            const fileName = fileObj.fileName || 'Program.cs';
+            const rawLines = (fileObj.code || '').split(/\r?\n/);
+            let inBlockComment = false;
 
-        for (let lineIdx = 0; lineIdx < rawLines.length; lineIdx++) {
-            let line = rawLines[lineIdx];
-            const originalLineNum = lineIdx + 1;
+            for (let lineIdx = 0; lineIdx < rawLines.length; lineIdx++) {
+                let line = rawLines[lineIdx];
+                const originalLineNum = lineIdx + 1;
 
-            // טיפול בהערות בלוק /* ... */
-            if (inBlockComment) {
-                const endCommentIdx = line.indexOf('*/');
-                if (endCommentIdx !== -1) {
-                    line = line.substring(endCommentIdx + 2);
-                    inBlockComment = false;
-                } else {
-                    continue;
+                // טיפול בהערות בלוק /* ... */
+                if (inBlockComment) {
+                    const endCommentIdx = line.indexOf('*/');
+                    if (endCommentIdx !== -1) {
+                        line = line.substring(endCommentIdx + 2);
+                        inBlockComment = false;
+                    } else {
+                        continue;
+                    }
                 }
-            }
 
-            const startCommentIdx = line.indexOf('/*');
-            if (startCommentIdx !== -1) {
-                const endCommentIdx = line.indexOf('*/', startCommentIdx + 2);
-                if (endCommentIdx !== -1) {
-                    line = line.substring(0, startCommentIdx) + ' ' + line.substring(endCommentIdx + 2);
-                } else {
-                    line = line.substring(0, startCommentIdx);
-                    inBlockComment = true;
+                const startCommentIdx = line.indexOf('/*');
+                if (startCommentIdx !== -1) {
+                    const endCommentIdx = line.indexOf('*/', startCommentIdx + 2);
+                    if (endCommentIdx !== -1) {
+                        line = line.substring(0, startCommentIdx) + ' ' + line.substring(endCommentIdx + 2);
+                    } else {
+                        line = line.substring(0, startCommentIdx);
+                        inBlockComment = true;
+                    }
                 }
-            }
 
-            // הסרת הערת שורה //
-            const singleCommentIdx = line.indexOf('//');
-            if (singleCommentIdx !== -1) {
-                line = line.substring(0, singleCommentIdx);
-            }
+                // הסרת הערת שורה //
+                const singleCommentIdx = line.indexOf('//');
+                if (singleCommentIdx !== -1) {
+                    line = line.substring(0, singleCommentIdx);
+                }
 
-            // טוקניזציה לשורה הנוכחית
-            const lineTokens = this.tokenizeLine(line, originalLineNum);
-            tokens.push(...lineTokens);
+                // טוקניזציה לשורה הנוכחית
+                const lineTokens = this.tokenizeLine(line, originalLineNum, fileName);
+                tokens.push(...lineTokens);
+            }
         }
 
         return { tokens, lineMap };
     }
 
-    tokenizeLine(line, lineNum) {
+    tokenizeLine(line, lineNum, fileName = 'Program.cs') {
         const tokens = [];
         const regex = /\s*(==|!=|<=|>=|&&|\|\||\+\+|--|\+=|-=|\*=|\/=|=>|[(){}\[\],;+\-*\/%<>=!.]|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])'|[a-zA-Z_]\w*(?:<[a-zA-Z0-9_,\s]*(?:<[a-zA-Z0-9_,\s]*(?:<[a-zA-Z0-9_,\s]*>)?>)?>)?|-?\d+(?:\.\d+)?)\s*/g;
         let match;
@@ -124,7 +141,8 @@ class CSharpQueueInterpreter {
             const val = match[1];
             tokens.push({
                 value: val,
-                line: lineNum
+                line: lineNum,
+                file: fileName
             });
         }
         return tokens;
@@ -146,11 +164,11 @@ class Parser {
     }
 
     peek(offset = 0) {
-        return this.tokens[this.pos + offset] || { value: '', line: -1 };
+        return this.tokens[this.pos + offset] || { value: '', line: -1, file: 'Program.cs' };
     }
 
     consume() {
-        return this.tokens[this.pos++] || { value: '', line: -1 };
+        return this.tokens[this.pos++] || { value: '', line: -1, file: 'Program.cs' };
     }
 
     match(expected) {
@@ -167,6 +185,7 @@ class Parser {
             const current = this.peek();
             throw {
                 line: current.line > 0 ? current.line : 1,
+                file: current.file || 'Program.cs',
                 message: `ציפייה ל-'${expected}', אך נמצא '${current.value || 'סוף הקוד'}'`
             };
         }
@@ -320,7 +339,8 @@ class Parser {
                     access: hasExplicitAccess ? access : 'public',
                     params,
                     body,
-                    line: classTok.line
+                    line: classTok.line,
+                    file: classTok.file || 'Program.cs'
                 });
                 continue;
             }
@@ -356,7 +376,7 @@ class Parser {
                         } else if (this.match('=>')) {
                             const expr = this.parseExpression();
                             this.expect(';');
-                            getter = { isAuto: false, access: acc, body: [{ type: 'ReturnStatement', argument: expr, line: classTok.line }] };
+                            getter = { isAuto: false, access: acc, body: [{ type: 'ReturnStatement', argument: expr, line: classTok.line, file: classTok.file || 'Program.cs' }] };
                         }
                     } else if (accessorType === 'set') {
                         this.consume(); // 'set'
@@ -372,7 +392,7 @@ class Parser {
                         } else if (this.match('=>')) {
                             const expr = this.parseExpression();
                             this.expect(';');
-                            setter = { isAuto: false, access: acc, body: [{ type: 'ExpressionStatement', expression: expr, line: classTok.line }] };
+                            setter = { isAuto: false, access: acc, body: [{ type: 'ExpressionStatement', expression: expr, line: classTok.line, file: classTok.file || 'Program.cs' }] };
                         }
                     } else {
                         this.consume();
@@ -393,7 +413,8 @@ class Parser {
                     getter,
                     setter,
                     init,
-                    line: classTok.line
+                    line: classTok.line,
+                    file: classTok.file || 'Program.cs'
                 });
                 continue;
             } else if (this.match('=>')) {
@@ -404,10 +425,11 @@ class Parser {
                     name: memberName,
                     type: memberType,
                     access,
-                    getter: { isAuto: false, access, body: [{ type: 'ReturnStatement', argument: expr, line: classTok.line }] },
+                    getter: { isAuto: false, access, body: [{ type: 'ReturnStatement', argument: expr, line: classTok.line, file: classTok.file || 'Program.cs' }] },
                     setter: null,
                     init: null,
-                    line: classTok.line
+                    line: classTok.line,
+                    file: classTok.file || 'Program.cs'
                 });
                 continue;
             }
@@ -437,7 +459,8 @@ class Parser {
                     isVirtual,
                     params,
                     body,
-                    line: classTok.line
+                    line: classTok.line,
+                    file: classTok.file || 'Program.cs'
                 });
             } else {
                 // שדה (Field) - תמיכה גם בהגדרה מרובה: int x, y;
@@ -451,7 +474,7 @@ class Parser {
                 }
                 this.expect(';');
                 for (const fn of fieldNames) {
-                    fields.push({ name: fn, type: memberType, access, init, line: classTok.line });
+                    fields.push({ name: fn, type: memberType, access, init, line: classTok.line, file: classTok.file || 'Program.cs' });
                 }
             }
         }
@@ -466,7 +489,8 @@ class Parser {
             constructors,
             methods,
             nestedClasses,
-            line: classTok.line
+            line: classTok.line,
+            file: classTok.file || 'Program.cs'
         };
     }
 
@@ -527,12 +551,14 @@ class Parser {
             returnType,
             params,
             body,
-            line: startTok.line
+            line: startTok.line,
+            file: startTok.file || 'Program.cs'
         };
     }
 
     parseStatement() {
         const tok = this.peek();
+        const file = tok.file || 'Program.cs';
 
         // בלוק { ... }
         if (tok.value === '{') {
@@ -542,7 +568,7 @@ class Parser {
                 statements.push(this.parseStatement());
             }
             this.expect('}');
-            return { type: 'BlockStatement', statements, line: tok.line };
+            return { type: 'BlockStatement', statements, line: tok.line, file };
         }
 
         // while (...)
@@ -552,7 +578,7 @@ class Parser {
             const condition = this.parseExpression();
             this.expect(')');
             const body = this.parseStatement();
-            return { type: 'WhileStatement', condition, body, line: tok.line };
+            return { type: 'WhileStatement', condition, body, line: tok.line, file };
         }
 
         // if (...)
@@ -566,7 +592,7 @@ class Parser {
             if (this.match('else')) {
                 alternate = this.parseStatement();
             }
-            return { type: 'IfStatement', condition, consequent, alternate, line: tok.line };
+            return { type: 'IfStatement', condition, consequent, alternate, line: tok.line, file };
         }
 
         // return ...;
@@ -577,7 +603,7 @@ class Parser {
                 value = this.parseExpression();
             }
             this.expect(';');
-            return { type: 'ReturnStatement', value, line: tok.line };
+            return { type: 'ReturnStatement', value, line: tok.line, file };
         }
 
         // הצהרת משתנה: int x = 5;, Queue<int> temp = new Queue<int>();
@@ -594,7 +620,8 @@ class Parser {
                 varType,
                 varName,
                 init,
-                line: tok.line
+                line: tok.line,
+                file
             };
         }
 
@@ -604,7 +631,8 @@ class Parser {
         return {
             type: 'ExpressionStatement',
             expression: expr,
-            line: tok.line
+            line: tok.line,
+            file
         };
     }
 
@@ -626,6 +654,7 @@ class Parser {
         if (!/^[a-zA-Z_]\w*$/.test(tok.value)) {
             throw {
                 line: tok.line > 0 ? tok.line : 1,
+                file: tok.file || 'Program.cs',
                 message: `ציפייה ל-${desc}, אך נמצא '${tok.value}'`
             };
         }
@@ -994,6 +1023,10 @@ class RuntimeEnvironment {
         // מחסנית קריאות
         this.callStack = [];
 
+        // מעקב אחר הקובץ והשורה הנוכחיים בהרצה
+        this.currentFile = 'Program.cs';
+        this.currentLine = 1;
+
         // פלט מסוף (Console Output)
         this.consoleOutputs = [];
     }
@@ -1010,99 +1043,37 @@ class RuntimeEnvironment {
 
         const initialArgs = [];
         this.initialQueueType = 'int';
+        this.initialQueuesList = [];
+        this.initialQueuesSnapshotList = [];
 
-        // בדיקה האם יש פרמטרים מסוג Queue<T> בארגומנטים של פונקציית הכניסה
+        // בדיקת פרמטרים של פונקציית הכניסה (Main או פונקציה ראשונה)
         if (entryFunction) {
-            for (const param of entryFunction.params) {
+            const totalParams = entryFunction.params.length;
+            for (let pIdx = 0; pIdx < totalParams; pIdx++) {
+                const param = entryFunction.params[pIdx];
+                const rawVal = this.getParamRawValue(param.name, pIdx, totalParams);
+
                 if (param.type.startsWith('Queue')) {
                     const match = param.type.match(/^Queue<(.+)>$/);
                     const qType = match ? match[1].trim() : 'int';
-                    let queueInst;
-                    if (qType.startsWith('Queue')) {
-                        const subType = qType.match(/^Queue<(.+)>$/) ? qType.match(/^Queue<(.+)>$/)[1].trim() : 'int';
-                        queueInst = new QueueInstance(param.name, [], qType);
-                        this.queues.set(param.name, queueInst);
-                        if (Array.isArray(this.initialValues)) {
-                            this.initialValues.forEach((sub, sIdx) => {
-                                if (sub instanceof QueueInstance) {
-                                    queueInst.insert(sub);
-                                } else if (Array.isArray(sub)) {
-                                    const subQ = new QueueInstance(`sub_${sIdx + 1}`, sub, subType);
-                                    this.queues.set(subQ.name, subQ);
-                                    queueInst.insert(subQ);
-                                }
-                            });
-                        }
-                    } else if (this.classes.has(qType) || (!['int', 'char', 'string', 'bool', 'double', 'float', 'long'].includes(qType) && !qType.startsWith('Queue'))) {
-                        const classDecl = this.classes.get(qType);
-                        const fieldMeta = new Map();
-                        const propMeta = new Map();
-                        if (classDecl) {
-                            for (const f of classDecl.fields) {
-                                fieldMeta.set(f.name, { access: f.access || 'private', type: f.type });
-                            }
-                            if (classDecl.properties) {
-                                for (const p of classDecl.properties) {
-                                    propMeta.set(p.name, p);
-                                }
-                            }
-                        }
-                        queueInst = new QueueInstance(param.name, [], qType);
-                        if (Array.isArray(this.initialValues)) {
-                            this.initialValues.forEach(val => {
-                                if (val instanceof ClassInstance) {
-                                    queueInst.insert(val);
-                                } else if (val && typeof val === 'object' && !Array.isArray(val)) {
-                                    const rawFields = val.fields || val;
-                                    const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
-                                    if (classDecl) {
-                                        for (const f of classDecl.fields) {
-                                            let defaultVal = 0;
-                                            if (f.type === 'string') defaultVal = '';
-                                            else if (f.type === 'bool') defaultVal = false;
-                                            else if (f.type === 'char') defaultVal = ' ';
-                                            inst.fields[f.name] = defaultVal;
-                                        }
-                                        for (const m of classDecl.methods) {
-                                            inst.methods.set(m.name, m);
-                                        }
-                                    }
-                                    Object.assign(inst.fields, rawFields);
-                                    queueInst.insert(inst);
-                                } else if (Array.isArray(val)) {
-                                    const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
-                                    if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
-                                        classDecl.fields.forEach((f, fIdx) => {
-                                            inst.fields[f.name] = val[fIdx] !== undefined ? val[fIdx] : (f.type === 'string' ? '' : 0);
-                                        });
-                                        for (const m of classDecl.methods) {
-                                            inst.methods.set(m.name, m);
-                                        }
-                                    } else {
-                                        val.forEach((item, idx) => {
-                                            inst.fields[`val_${idx + 1}`] = item;
-                                        });
-                                    }
-                                    queueInst.insert(inst);
-                                } else if (val !== null && val !== undefined) {
-                                    const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
-                                    if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
-                                        inst.fields[classDecl.fields[0].name] = val;
-                                        for (const m of classDecl.methods) {
-                                            inst.methods.set(m.name, m);
-                                        }
-                                    } else {
-                                        inst.fields['value'] = val;
-                                    }
-                                    queueInst.insert(inst);
-                                }
-                            });
-                        }
-                    } else {
-                        queueInst = new QueueInstance(param.name, this.initialValues, qType);
-                    }
+                    const itemsToUse = (rawVal !== undefined && rawVal !== null)
+                        ? rawVal
+                        : this.generateDefaultQueueValues(qType, pIdx);
+
+                    const queueInst = this.buildQueueInstance(param.name, itemsToUse, qType);
                     this.queues.set(param.name, queueInst);
                     initialArgs.push(queueInst);
+
+                    this.initialQueuesList.push({
+                        name: param.name,
+                        type: qType,
+                        items: this.snapshotItems(queueInst.items)
+                    });
+                    this.initialQueuesSnapshotList.push({
+                        name: param.name,
+                        items: this.snapshotItems(queueInst.items)
+                    });
+
                     if (!this.hasInitialQueue) {
                         this.hasInitialQueue = true;
                         this.initialQueueName = param.name;
@@ -1110,15 +1081,19 @@ class RuntimeEnvironment {
                         this.initialQueueSnapshot = this.snapshotItems(queueInst.items);
                     }
                 } else {
-                    initialArgs.push(0);
+                    const parsedVal = this.parsePrimitiveParamValue(rawVal, param.type, param.name);
+                    initialArgs.push(parsedVal);
                 }
             }
         }
 
         // הוספת פסיעת התחלה
-        const startMsg = this.hasInitialQueue
-            ? `התחלת ריצת התוכנית (אותחל תור התחלתי ${this.initialQueueName})`
-            : 'התחלת ריצת התוכנית';
+        let startMsg = 'התחלת ריצת התוכנית';
+        if (this.initialQueuesList.length === 1) {
+            startMsg = `התחלת ריצת התוכנית (אותחל תור ${this.initialQueuesList[0].name})`;
+        } else if (this.initialQueuesList.length > 1) {
+            startMsg = `התחלת ריצת התוכנית (אותחלו ${this.initialQueuesList.length} תורים: ${this.initialQueuesList.map(q => q.name).join(', ')})`;
+        }
         this.recordFrame(1, startMsg, 'idle');
 
         if (entryFunction) {
@@ -1133,26 +1108,40 @@ class RuntimeEnvironment {
             this.callStack.pop();
         }
 
-        // בדיקת שימור תור מקורי בסיום - רק אם הפונקציה קיבלה תור התחלתי כפרמטר!
+        // בדיקת שימור תור מקורי בסיום - עבור כל התורים שהוגדרו בארגומנטים!
         let originalPreserved = true;
         let endDesc = 'התוכנית הסתיימה בהצלחה!';
 
-        if (this.hasInitialQueue && this.initialQueueName) {
-            const finalQ = this.queues.get(this.initialQueueName);
-            if (!finalQ || finalQ.items.length !== this.initialQueueSnapshot.length) {
-                originalPreserved = false;
-            } else {
-                for (let i = 0; i < this.initialQueueSnapshot.length; i++) {
-                    if (this.formatVal(finalQ.items[i]) !== this.formatVal(this.initialQueueSnapshot[i])) {
-                        originalPreserved = false;
-                        break;
+        if (this.initialQueuesSnapshotList && this.initialQueuesSnapshotList.length > 0) {
+            const modifiedQueues = [];
+            for (const initQ of this.initialQueuesSnapshotList) {
+                const finalQ = this.queues.get(initQ.name);
+                let preserved = true;
+                if (!finalQ || finalQ.items.length !== initQ.items.length) {
+                    preserved = false;
+                } else {
+                    for (let i = 0; i < initQ.items.length; i++) {
+                        if (this.formatVal(finalQ.items[i]) !== this.formatVal(initQ.items[i])) {
+                            preserved = false;
+                            break;
+                        }
                     }
+                }
+                if (!preserved) {
+                    originalPreserved = false;
+                    modifiedQueues.push(initQ.name);
                 }
             }
 
-            endDesc = originalPreserved
-                ? `התוכנית הסתיימה בהצלחה! התור המקורי ${this.initialQueueName} נשמר במלואו כנדרש בבגרות.`
-                : `התוכנית הסתיימה, אך שים לב: התור המקורי ${this.initialQueueName} לא שוחזר למצבו המקורי (הפרת כלל הברזל בבגרות)!`;
+            if (originalPreserved) {
+                if (this.initialQueuesSnapshotList.length === 1) {
+                    endDesc = `התוכנית הסתיימה בהצלחה! התור המקורי ${this.initialQueuesSnapshotList[0].name} נשמר במלואו כנדרש בבגרות.`;
+                } else {
+                    endDesc = `התוכנית הסתיימה בהצלחה! כל התורים המקוריים (${this.initialQueuesSnapshotList.map(q => q.name).join(', ')}) נשמרו במלואם.`;
+                }
+            } else {
+                endDesc = `התוכנית הסתיימה, אך שים לב: התור/ים (${modifiedQueues.join(', ')}) לא שוחזרו למצבם המקורי (הפרת כלל הברזל בבגרות)!`;
+            }
         }
 
         this.recordFrame(this.frames.length > 0 ? this.frames[this.frames.length - 1].line : 1, endDesc, 'idle', true, originalPreserved);
@@ -1163,9 +1152,176 @@ class RuntimeEnvironment {
             hasInitialQueue: this.hasInitialQueue,
             initialQueueName: this.initialQueueName,
             initialQueueType: this.initialQueueType || 'int',
+            initialQueuesList: this.initialQueuesList,
+            params: entryFunction ? entryFunction.params.map(p => ({
+                name: p.name,
+                type: p.type,
+                isQueue: p.type.startsWith('Queue'),
+                queueItemType: p.type.startsWith('Queue') ? (p.type.match(/^Queue<(.+)>$/) ? p.type.match(/^Queue<(.+)>$/)[1].trim() : 'int') : null
+            })) : [],
             originalPreserved,
             consoleOutputs: this.consoleOutputs
         };
+    }
+
+    getParamRawValue(paramName, pIdx, totalParams) {
+        if (!this.initialValues) return undefined;
+        if (typeof this.initialValues === 'object' && !Array.isArray(this.initialValues)) {
+            if (this.initialValues[paramName] !== undefined) {
+                return this.initialValues[paramName];
+            }
+            const lower = paramName.toLowerCase();
+            for (const k of Object.keys(this.initialValues)) {
+                if (k.toLowerCase() === lower) return this.initialValues[k];
+            }
+        }
+        if (Array.isArray(this.initialValues)) {
+            if (pIdx === 0 && (totalParams === 1 || !Array.isArray(this.initialValues[0]))) {
+                return this.initialValues;
+            }
+            if (this.initialValues[pIdx] !== undefined) {
+                return this.initialValues[pIdx];
+            }
+        }
+        return undefined;
+    }
+
+    buildQueueInstance(paramName, rawValues, qType) {
+        let queueInst;
+        if (qType.startsWith('Queue')) {
+            const subType = qType.match(/^Queue<(.+)>$/) ? qType.match(/^Queue<(.+)>$/)[1].trim() : 'int';
+            queueInst = new QueueInstance(paramName, [], qType);
+            this.queues.set(paramName, queueInst);
+            if (Array.isArray(rawValues)) {
+                rawValues.forEach((sub, sIdx) => {
+                    if (sub instanceof QueueInstance) {
+                        queueInst.insert(sub);
+                    } else if (Array.isArray(sub)) {
+                        const subQ = new QueueInstance(`${paramName}_sub_${sIdx + 1}`, sub, subType);
+                        this.queues.set(subQ.name, subQ);
+                        queueInst.insert(subQ);
+                    }
+                });
+            }
+        } else if (this.classes.has(qType) || (!['int', 'char', 'string', 'bool', 'double', 'float', 'long'].includes(qType) && !qType.startsWith('Queue'))) {
+            const classDecl = this.classes.get(qType);
+            const fieldMeta = new Map();
+            const propMeta = new Map();
+            if (classDecl) {
+                for (const f of classDecl.fields) {
+                    fieldMeta.set(f.name, { access: f.access || 'private', type: f.type });
+                }
+                if (classDecl.properties) {
+                    for (const p of classDecl.properties) {
+                        propMeta.set(p.name, p);
+                    }
+                }
+            }
+            queueInst = new QueueInstance(paramName, [], qType);
+            if (Array.isArray(rawValues)) {
+                rawValues.forEach(val => {
+                    if (val instanceof ClassInstance) {
+                        queueInst.insert(val);
+                    } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+                        const rawFields = val.fields || val;
+                        const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
+                        if (classDecl) {
+                            for (const f of classDecl.fields) {
+                                let defaultVal = 0;
+                                if (f.type === 'string') defaultVal = '';
+                                else if (f.type === 'bool') defaultVal = false;
+                                else if (f.type === 'char') defaultVal = ' ';
+                                inst.fields[f.name] = defaultVal;
+                            }
+                            for (const m of classDecl.methods) {
+                                inst.methods.set(m.name, m);
+                            }
+                        }
+                        Object.assign(inst.fields, rawFields);
+                        queueInst.insert(inst);
+                    } else if (Array.isArray(val)) {
+                        const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
+                        if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                            classDecl.fields.forEach((f, fIdx) => {
+                                inst.fields[f.name] = val[fIdx] !== undefined ? val[fIdx] : (f.type === 'string' ? '' : 0);
+                            });
+                            for (const m of classDecl.methods) {
+                                inst.methods.set(m.name, m);
+                            }
+                        } else {
+                            val.forEach((item, idx) => {
+                                inst.fields[`val_${idx + 1}`] = item;
+                            });
+                        }
+                        queueInst.insert(inst);
+                    } else if (val !== null && val !== undefined) {
+                        const inst = new ClassInstance(qType, {}, fieldMeta, propMeta);
+                        if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                            inst.fields[classDecl.fields[0].name] = val;
+                            for (const m of classDecl.methods) {
+                                inst.methods.set(m.name, m);
+                            }
+                        } else {
+                            inst.fields['value'] = val;
+                        }
+                        queueInst.insert(inst);
+                    }
+                });
+            }
+        } else {
+            const arr = Array.isArray(rawValues) ? rawValues : [];
+            queueInst = new QueueInstance(paramName, arr, qType);
+        }
+        return queueInst;
+    }
+
+    parsePrimitiveParamValue(rawVal, paramType, paramName) {
+        if (rawVal === undefined || rawVal === null) {
+            if (paramType === 'string') return paramName || 'text';
+            if (paramType === 'char') return 'a';
+            if (paramType === 'bool') return true;
+            return 0;
+        }
+        if (paramType === 'string') {
+            let str = String(rawVal);
+            if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+                str = str.slice(1, -1);
+            }
+            return str;
+        }
+        if (paramType === 'char') {
+            let str = String(rawVal).trim();
+            if ((str.startsWith("'") && str.endsWith("'")) || (str.startsWith('"') && str.endsWith('"'))) {
+                str = str.slice(1, -1);
+            }
+            return str.length > 0 ? str[0] : 'a';
+        }
+        if (paramType === 'bool') {
+            if (typeof rawVal === 'boolean') return rawVal;
+            return String(rawVal).trim().toLowerCase() === 'true';
+        }
+        let clean = String(rawVal).trim();
+        if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+            clean = clean.slice(1, -1);
+        }
+        const num = Number(clean);
+        return isNaN(num) ? 0 : num;
+    }
+
+    generateDefaultQueueValues(qType, pIdx) {
+        if (qType === 'char') {
+            return pIdx === 0 ? ['a', 'b', 'c', 'd'] : ['x', 'y', 'z'];
+        }
+        if (qType === 'string') {
+            return pIdx === 0 ? ['apple', 'banana', 'cherry'] : ['first', 'second', 'third'];
+        }
+        if (qType === 'Point') {
+            return [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }];
+        }
+        if (qType.startsWith('Queue')) {
+            return [[10, 20], [30, 40], [50, 60]];
+        }
+        return pIdx === 0 ? [14, 7, 25, 9, 31] : [4, 18, 5, 2];
     }
 
     executeFunction(fn, args = []) {
@@ -1183,10 +1339,15 @@ class RuntimeEnvironment {
             }
         }
 
+        const prevFile = this.currentFile;
+        if (fn.file) this.currentFile = fn.file;
+        if (fn.line) this.currentLine = fn.line;
+
         const frameInfo = {
             funcName: `${fn.name}(${fn.params.map(p => p.name).join(', ')})`,
             scope,
-            line: fn.line
+            line: fn.line,
+            file: fn.file || this.currentFile || 'Program.cs'
         };
         this.callStack.push(frameInfo);
 
@@ -1203,6 +1364,7 @@ class RuntimeEnvironment {
         } finally {
             this.callStack.pop();
             this.recordFrame(fn.line, `סיום פונקציה ${fn.name}${returnVal !== undefined ? `, הוחזר: ${this.formatVal(returnVal)}` : ''}`);
+            this.currentFile = prevFile;
         }
 
         return returnVal;
@@ -1210,6 +1372,8 @@ class RuntimeEnvironment {
 
     executeStatement(stmt, scope) {
         this.checkStepLimit(stmt.line);
+        if (stmt.file) this.currentFile = stmt.file;
+        if (stmt.line) this.currentLine = stmt.line;
 
         switch (stmt.type) {
             case 'BlockStatement': {
@@ -1722,6 +1886,8 @@ class RuntimeEnvironment {
                     }
 
                     if (ctor) {
+                        const prevFile = this.currentFile;
+                        if (classDecl.file) this.currentFile = classDecl.file;
                         this.checkAccess(instance, ctor.access || 'public', scope, `הבנאי של '${classDecl.name}'`, expr.line);
                         const ctorScope = new Map();
                         ctorScope.set('this', instance);
@@ -1731,6 +1897,7 @@ class RuntimeEnvironment {
                         this.callStack.push({
                             funcName: `${classDecl.name} (בנאי Constructor)`,
                             line: expr.line,
+                            file: classDecl.file || this.currentFile || 'Program.cs',
                             scope: ctorScope
                         });
                         this.recordFrame(expr.line, `קריאה לבנאי new ${classDecl.name}(${evalArgs.map(v => this.formatVal(v)).join(', ')})`);
@@ -1741,6 +1908,7 @@ class RuntimeEnvironment {
                         }
                         this.callStack.pop();
                         this.recordFrame(expr.line, `סיום בנאי ${classDecl.name} ויצירת מופע חדש: ${this.formatVal(instance)}`);
+                        this.currentFile = prevFile;
                     } else {
                         this.recordFrame(expr.line, `יצירת מופע של ${classDecl.name}`);
                     }
@@ -1785,12 +1953,15 @@ class RuntimeEnvironment {
                     if (expr.method === 'ToString') {
                         if (obj.methods.has('ToString')) {
                             const methodDecl = obj.methods.get('ToString');
+                            const prevFile = this.currentFile;
+                            if (methodDecl.file) this.currentFile = methodDecl.file;
                             this.checkAccess(obj, methodDecl.access || 'public', scope, `הפעולה '${obj.className}.ToString()'`, expr.line);
                             const mScope = new Map();
                             mScope.set('this', obj);
                             this.callStack.push({
                                 funcName: `${obj.className}.ToString()`,
                                 line: expr.line,
+                                file: methodDecl.file || this.currentFile || 'Program.cs',
                                 scope: mScope
                             });
                             let res = null;
@@ -1802,6 +1973,7 @@ class RuntimeEnvironment {
                                 }
                             }
                             this.callStack.pop();
+                            this.currentFile = prevFile;
                             return res !== null ? String(res) : obj.toString();
                         }
                         return obj.toString();
@@ -1809,6 +1981,8 @@ class RuntimeEnvironment {
 
                     if (obj.methods.has(expr.method)) {
                         const methodDecl = obj.methods.get(expr.method);
+                        const prevFile = this.currentFile;
+                        if (methodDecl.file) this.currentFile = methodDecl.file;
                         this.checkAccess(obj, methodDecl.access || 'public', scope, `הפעולה '${obj.className}.${expr.method}()'`, expr.line);
                         const evalArgs = (expr.arguments || []).map(arg => this.evaluateExpression(arg, scope));
                         const methodScope = new Map();
@@ -1819,6 +1993,7 @@ class RuntimeEnvironment {
                         this.callStack.push({
                             funcName: `${obj.className}.${expr.method}()`,
                             line: expr.line,
+                            file: methodDecl.file || this.currentFile || 'Program.cs',
                             scope: methodScope
                         });
                         this.recordFrame(expr.line, `קריאה לפעולה ${obj.className}.${expr.method}(${evalArgs.map(v => this.formatVal(v)).join(', ')})`);
@@ -1832,6 +2007,7 @@ class RuntimeEnvironment {
                         }
                         this.callStack.pop();
                         this.recordFrame(expr.line, `חזרה מפעולת ${obj.className}.${expr.method}`);
+                        this.currentFile = prevFile;
                         return res;
                     }
                 }
@@ -1985,6 +2161,7 @@ class RuntimeEnvironment {
             return {
                 funcName: f.funcName,
                 line: f.line,
+                file: f.file || 'Program.cs',
                 variables: vars
             };
         });
@@ -1996,6 +2173,7 @@ class RuntimeEnvironment {
         this.frames.push({
             step: this.frames.length,
             line,
+            file: this.currentFile || 'Program.cs',
             description,
             callStack: callStackSnapshot,
             queues: queuesSnapshot,
@@ -2011,6 +2189,7 @@ class RuntimeEnvironment {
         if (this.stepCount > this.maxSteps) {
             throw {
                 line,
+                file: this.currentFile || 'Program.cs',
                 message: `עצירת חירום: התוכנית עברה את מגבלת ${this.maxSteps} הצעדים (חשד ללולאה אינסופית או רקורסיה לא מרוסנת)!`
             };
         }

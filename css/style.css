@@ -415,6 +415,162 @@ body {
     overflow: hidden;
 }
 
+/* סרגל לשוניות קבצים ומחלקות בעורך הקוד (Editor Class Tabs) */
+.editor-tabs-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #181825;
+    border-bottom: 1px solid #313244;
+    padding: 0 0.5rem;
+    min-height: 38px;
+    user-select: none;
+    direction: ltr;
+}
+
+.editor-tabs-list {
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 2px;
+    scrollbar-width: thin;
+}
+
+.editor-tab-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    height: 100%;
+    background: #1e1e2e;
+    border-top: 2px solid transparent;
+    border-right: 1px solid #313244;
+    color: #a6adc8;
+    font-family: 'Consolas', monospace;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.editor-tab-item:hover {
+    background: #25263a;
+    color: #cdd6f4;
+}
+
+.editor-tab-item.active {
+    background: #11111b;
+    color: #89b4fa;
+    font-weight: 700;
+    border-top: 2px solid #89b4fa;
+}
+
+.editor-tab-icon {
+    font-size: 0.95rem;
+}
+
+.editor-tab-name {
+    display: inline-block;
+}
+
+.editor-tab-badge {
+    font-size: 0.65rem;
+    padding: 0.05rem 0.35rem;
+    border-radius: 3px;
+    background: #313244;
+    color: #bac2de;
+}
+
+.editor-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #6c7086;
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    margin-left: 0.2rem;
+    transition: all 0.15s ease;
+}
+
+.editor-tab-close:hover {
+    background: #f38ba8;
+    color: #11111b;
+}
+
+.btn-add-class-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.65rem;
+    height: 28px;
+    background: rgba(137, 180, 250, 0.12);
+    border: 1px dashed rgba(137, 180, 250, 0.4);
+    border-radius: 4px;
+    color: #89b4fa;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-add-class-tab:hover {
+    background: #89b4fa;
+    color: #11111b;
+    border-style: solid;
+}
+
+.new-tab-inline-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0 0.5rem;
+    background: #11111b;
+    border: 1px solid #89b4fa;
+    border-radius: 4px;
+    height: 30px;
+    margin: auto 0;
+}
+
+.new-tab-inline-form input {
+    width: 110px;
+    background: transparent;
+    border: none;
+    color: #cdd6f4;
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    direction: ltr;
+}
+
+.new-tab-inline-form button {
+    background: #89b4fa;
+    color: #11111b;
+    border: none;
+    border-radius: 3px;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.new-tab-inline-form .btn-tab-cancel {
+    background: transparent;
+    color: #a6adc8;
+}
+
+.new-tab-inline-form .btn-tab-cancel:hover {
+    color: #f38ba8;
+}
+
 .editor-wrapper {
     flex: 1;
     min-height: 0;
@@ -954,6 +1110,119 @@ body {
 .queue-init-desc {
     font-size: 0.8rem;
     color: var(--text-muted);
+}
+
+/* כרטיסיות אתחול פרמטרים ומשתנים של Main */
+.queue-params-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0.25rem 0;
+}
+
+.param-init-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.param-init-card:focus-within, .param-init-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+.param-init-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.param-init-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.param-init-title code {
+    background: #f1f5f9;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    color: #2563eb;
+    font-size: 0.85rem;
+    direction: ltr;
+}
+
+.param-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.param-badge.badge-queue {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.param-badge.badge-string {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.param-badge.badge-char {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.param-badge.badge-int {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.param-init-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.param-init-row .param-input {
+    flex: 1;
+    min-width: 0;
+    direction: ltr;
+    font-family: 'Consolas', monospace;
+    font-size: 0.88rem;
+}
+
+.param-init-hint {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin: 0;
+}
+
+.queue-init-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.queue-init-actions-bar .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
 }
 
 .queues-stage {
