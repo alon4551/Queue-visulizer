@@ -130,6 +130,51 @@ class AutocompleteEngine {
                 keywords: ['console.write', 'write']
             },
             {
+                id: 'stack-push',
+                label: 'Push(x)',
+                insertText: 'Push()',
+                cursorOffset: -1,
+                category: 'method',
+                typeBadge: 'void',
+                signature: 'public void Push(T x)',
+                params: 'T x — הערך לדחיפה לראש המחסנית.',
+                returns: 'void — אינה מחזירה ערך.',
+                desc: 'דוחפת את הערך x לראש המחסנית (Top). גודל המחסנית גדל ב-1. שומרת על עקרון LIFO (אחרון נכנס, ראשון יוצא). סיבוכיות: O(1).',
+                triggersOnDot: true,
+                triggersStandalone: true,
+                keywords: ['push', 'pus', 'add', 'insert', 'st.push']
+            },
+            {
+                id: 'stack-pop',
+                label: 'Pop()',
+                insertText: 'Pop()',
+                cursorOffset: 0,
+                category: 'method',
+                typeBadge: 'T',
+                signature: 'public T Pop()',
+                params: 'אין פרמטרים.',
+                returns: 'T — הערך שהיה בראש המחסנית ונשלף ממנה.',
+                desc: 'שולפת ומחזירה את האיבר הנמצא בראש המחסנית (Top). גודל המחסנית קטן ב-1. סיבוכיות: O(1). ⚠️ שים לב: הפעולה זורקת שגיאת ריצה (StackEmptyException) אם המחסנית ריקה! תמיד יש לבדוק IsEmpty() לפני קריאה ל-Pop.',
+                triggersOnDot: true,
+                triggersStandalone: true,
+                keywords: ['pop', 'po', 'remove', 'pull', 'st.pop']
+            },
+            {
+                id: 'stack-top',
+                label: 'Top()',
+                insertText: 'Top()',
+                cursorOffset: 0,
+                category: 'method',
+                typeBadge: 'T',
+                signature: 'public T Top()',
+                params: 'אין פרמטרים.',
+                returns: 'T — הערך הנמצא בראש המחסנית.',
+                desc: 'מציצה באיבר שבראש המחסנית (Top) ומחזירה את ערכו מבלי לשלוף אותו ומבלי לשנות את המחסנית. סיבוכיות: O(1). ⚠️ שים לב: לפי תקן משרד החינוך הפעולה נקראת Top() (ולא Peek). הפעולה זורקת שגיאת ריצה אם המחסנית ריקה!',
+                triggersOnDot: true,
+                triggersStandalone: true,
+                keywords: ['top', 'to', 'peek', 'front', 'st.top']
+            },
+            {
                 id: 'new-queue',
                 label: 'new Queue<int>()',
                 insertText: 'new Queue<int>()',
@@ -143,6 +188,40 @@ class AutocompleteEngine {
                 triggersOnDot: false,
                 triggersStandalone: true,
                 keywords: ['new queue', 'new q', 'queue<int>', 'new', 'que']
+            },
+            {
+                id: 'new-stack',
+                label: 'new Stack<int>()',
+                insertText: 'new Stack<int>()',
+                cursorOffset: 0,
+                category: 'class',
+                typeBadge: 'Stack<int>',
+                signature: 'Stack<int> temp = new Stack<int>();',
+                params: 'אין פרמטרים (בנאי ברירת מחדל ריק).',
+                returns: 'מופע מחסנית חדש וריק.',
+                desc: 'יוצרת מופע חדש וריק של מחסנית שלמים. המחסנית החדשה תתווסף ותוצג מיד כמכל אנכי (Canister) בהמחשה הויזואלית.',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['new stack', 'new st', 'stack<int>', 'new', 'sta']
+            },
+            {
+                id: 'while-stack',
+                label: 'while (!st.IsEmpty())',
+                insertText: `while (!st.IsEmpty())
+    {
+        int x = st.Pop();
+        
+    }`,
+                cursorOffset: 0,
+                category: 'snippet',
+                typeBadge: 'תבנית מחסנית',
+                signature: 'while (!st.IsEmpty())',
+                params: 'בדיקת תנאי מחסנית ריקה.',
+                returns: 'לולאת סריקה וריקון מחסנית.',
+                desc: 'תבנית סריקה סטנדרטית בבגרות לעיבוד איברי מחסנית st עד לריקונה (תוך העברה למחסנית עזר לשחזור).',
+                triggersOnDot: false,
+                triggersStandalone: true,
+                keywords: ['while stack', 'while (!st', 'st.isempty', 'stack loop']
             },
             {
                 id: 'while-queue',

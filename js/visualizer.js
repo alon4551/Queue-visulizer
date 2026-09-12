@@ -14,6 +14,7 @@ class QueueVisualizerApp {
         this.initialQueueType = 'int'; // 'int', 'char', 'string'
         this.initialQueue = [14, 7, 25, 9, 31];
         this.initialParams = { q: [14, 7, 25, 9, 31] };
+        this.studioMode = 'all'; // 'all', 'queue', 'stack', 'node', 'binnode'
 
         // ניהול קבצי מחלקות בלשוניות (Class & File Tabs)
         this.editorFiles = {
@@ -37,6 +38,7 @@ class QueueVisualizerApp {
 
     init() {
         this.cacheDom();
+        this.setupStudioMode();
         this.bindEvents();
         this.setupEditorTabs();
         this.renderEditorTabs();
@@ -51,6 +53,9 @@ class QueueVisualizerApp {
     }
 
     cacheDom() {
+        this.dom.studioModeBar = document.getElementById('studio-mode-bar');
+        this.dom.studioModeButtons = document.querySelectorAll('.btn-studio-mode');
+
         this.dom.initialQueueInput = document.getElementById('initial-queue-input');
         this.dom.btnSetQueue = document.getElementById('btn-set-queue');
         this.dom.btnRandomQueue = document.getElementById('btn-random-queue');
@@ -132,6 +137,66 @@ class QueueVisualizerApp {
                 }
             );
         }
+    }
+
+    setupStudioMode() {
+        this.studioMode = 'all';
+        const urlParams = new URLSearchParams(window.location.search);
+        const modeParam = urlParams.get('mode');
+        if (modeParam && ['all', 'queue', 'stack', 'node', 'binnode'].includes(modeParam)) {
+            this.studioMode = modeParam;
+        }
+
+        if (this.dom.studioModeButtons) {
+            this.dom.studioModeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mode = btn.dataset.mode;
+                    if (mode) {
+                        this.setStudioMode(mode, true);
+                    }
+                });
+            });
+        }
+
+        this.applyStudioModeClass();
+    }
+
+    setStudioMode(mode, updateUrl = false) {
+        this.studioMode = mode;
+        if (this.dom.studioModeButtons) {
+            this.dom.studioModeButtons.forEach(btn => {
+                if (btn.dataset.mode === mode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        this.applyStudioModeClass();
+
+        if (updateUrl && window.history && window.history.replaceState) {
+            const url = new URL(window.location.href);
+            if (mode === 'all') {
+                url.searchParams.delete('mode');
+            } else {
+                url.searchParams.set('mode', mode);
+            }
+            window.history.replaceState({}, '', url.toString());
+        }
+
+        if (this.frames && this.frames.length > 0) {
+            this.renderCurrentFrame({ followFile: false });
+        }
+    }
+
+    applyStudioModeClass() {
+        if (!this.dom.queuesStage) return;
+        ['mode-all', 'mode-queue', 'mode-stack', 'mode-node', 'mode-binnode'].forEach(cls => {
+            this.dom.queuesStage.classList.remove(cls);
+        });
+        this.dom.queuesStage.classList.add(`mode-${this.studioMode}`);
+        this.dom.queuesStage.dataset.studioMode = this.studioMode;
     }
 
     bindEvents() {
@@ -752,6 +817,131 @@ public class Program
                         tag: "מיזוג-נתונים"
                     };
                     this.renderEditorTabs();
+                } else if (choice === 'stack-basic') {
+                    const code = `// פעולות בסיסיות במחסנית Stack<int> (Push, Pop, Top, IsEmpty)
+public class Program
+{
+    public static void Main(Stack<int> s)
+    {
+        Console.WriteLine("הצצה לראש המחסנית: " + s.Top());
+        Stack<int> temp = new Stack<int>();
+
+        // שליפת כל האיברים מהמחסנית והדפסתם
+        while (!s.IsEmpty())
+        {
+            int val = s.Pop();
+            Console.WriteLine("נשלף מהמחסנית: " + val);
+            temp.Push(val);
+        }
+
+        // שחזור המחסנית המקורית (שמירה על כלל הברזל בבגרות)
+        while (!temp.IsEmpty())
+        {
+            s.Push(temp.Pop());
+        }
+
+        Console.WriteLine("המחסנית שוחזרה בהצלחה!");
+    }
+}`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
+                    this.initialParams = { s: [10, 20, 30, 40, 50] };
+                    this.setStudioMode('stack', true);
+                    this.renderEditorTabs();
+                } else if (choice === 'stack-reverse-queue') {
+                    const code = `// היפוך סדר איברי תור בעזרת מחסנית עזר (שאלה קלאסית בבגרות)
+public class Program
+{
+    public static void ReverseQueue(Queue<int> q)
+    {
+        Stack<int> st = new Stack<int>();
+
+        // שלב א': ריקון התור לתוך המחסנית (LIFO יהפוך את סדר האיברים)
+        while (!q.IsEmpty())
+        {
+            int item = q.Remove();
+            Console.WriteLine("מעביר מתור למחסנית: " + item);
+            st.Push(item);
+        }
+
+        // שלב ב': ריקון המחסנית בחזרה לתור
+        while (!st.IsEmpty())
+        {
+            int item = st.Pop();
+            Console.WriteLine("מחזיר ממחסנית לתור: " + item);
+            q.Insert(item);
+        }
+
+        Console.WriteLine("סיום! סדר איברי התור התהפך בהצלחה.");
+    }
+
+    public static void Main(Queue<int> q)
+    {
+        ReverseQueue(q);
+    }
+}`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
+                    this.initialParams = { q: [10, 20, 30, 40, 50] };
+                    this.initialQueue = [10, 20, 30, 40, 50];
+                    this.initialQueueType = 'int';
+                    this.setStudioMode('all', true);
+                    this.renderEditorTabs();
+                } else if (choice === 'stack-brackets') {
+                    const code = `// בדיקת איזון ותקינות סוגריים באמצעות מחסנית תווים
+public class Program
+{
+    public static bool IsBalanced(string expr)
+    {
+        Stack<char> st = new Stack<char>();
+
+        for (int i = 0; i < expr.Length; i++)
+        {
+            char c = expr[i];
+            if (c == '(' || c == '[')
+            {
+                st.Push(c);
+                Console.WriteLine("הכנסת סוגר פותח למחסנית: " + c);
+            }
+            else if (c == ')' || c == ']')
+            {
+                if (st.IsEmpty())
+                {
+                    Console.WriteLine("שגיאה: נמצא סוגר סוגר ללא פותח!");
+                    return false;
+                }
+                char top = st.Pop();
+                Console.WriteLine("בדיקת התאמה: נשלף " + top + " מול " + c);
+                if (c == ')' && top != '(') return false;
+                if (c == ']' && top != '[') return false;
+            }
+        }
+
+        bool balanced = st.IsEmpty();
+        Console.WriteLine("האם כל הסוגריים נסגרו כראוי? " + balanced);
+        return balanced;
+    }
+
+    public static void Main(string expr)
+    {
+        bool result = IsBalanced(expr);
+        Console.WriteLine("תוצאה סופית: " + (result ? "מאוזן ומסודר!" : "לא מאוזן!"));
+    }
+}`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
+                    this.initialParams = { expr: "([()]())" };
+                    this.setStudioMode('stack', true);
+                    this.renderEditorTabs();
                 }
 
                 if (this.dom.initialQueueInput) {
@@ -1294,13 +1484,20 @@ public class Program
         return items.join(', ');
     }
 
+    generateRandomStack(type = 'int') {
+        return this.generateRandomQueue(type);
+    }
+
     applyQueueFormatSample(sampleType) {
         if (!this.dom.initialQueueInput) return;
 
         let sampleVal = '';
         let targetCodePreset = null;
 
-        if (sampleType === 'Point' || this.isCustomClassType(sampleType)) {
+        if (sampleType === 'Stack') {
+            sampleVal = '10, 20, 30, 40, 50';
+            targetCodePreset = 'stack-basic';
+        } else if (sampleType === 'Point' || this.isCustomClassType(sampleType)) {
             if (this.isCustomClassType(this.initialQueueType) && this.initialQueueType !== 'Point') {
                 const sampleItems = this.generateRandomQueue(this.initialQueueType);
                 sampleVal = this.formatQueueInputValue(sampleItems, this.initialQueueType);
@@ -1346,8 +1543,10 @@ public class Program
 
     randomizeAllQueues() {
         if (!this.dom.queueParamsContainer) return;
-        const inputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-queue="true"]');
-        if (inputs.length === 0) {
+        const queueInputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-queue="true"]');
+        const stackInputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-stack="true"]');
+
+        if (queueInputs.length === 0 && stackInputs.length === 0) {
             const randItems = this.generateRandomQueue(this.initialQueueType);
             this.initialQueue = randItems;
             this.initialParams['q'] = randItems;
@@ -1358,7 +1557,7 @@ public class Program
             return;
         }
 
-        inputs.forEach(input => {
+        queueInputs.forEach(input => {
             const name = input.dataset.paramName;
             const pType = input.dataset.paramType || 'Queue<int>';
             const match = pType.match(/^Queue<(.+)>$/);
@@ -1371,6 +1570,17 @@ public class Program
                 this.initialQueueType = qType;
             }
             input.value = this.formatQueueInputValue(randItems, qType);
+        });
+
+        stackInputs.forEach(input => {
+            const name = input.dataset.paramName;
+            const pType = input.dataset.paramType || 'Stack<int>';
+            const match = pType.match(/^Stack<(.+)>$/);
+            const sType = match ? match[1].trim() : 'int';
+
+            const randItems = this.generateRandomStack(sType);
+            this.initialParams[name] = randItems;
+            input.value = this.formatQueueInputValue(randItems, sType);
         });
 
         this.recompile();
@@ -1401,6 +1611,7 @@ public class Program
             inputs.forEach(input => {
                 const name = input.dataset.paramName;
                 const isQueue = input.dataset.isQueue === 'true';
+                const isStack = input.dataset.isStack === 'true';
                 const pType = input.dataset.paramType || '';
 
                 if (isQueue) {
@@ -1415,6 +1626,14 @@ public class Program
                         this.initialQueue = parsed;
                         this.initialQueueType = qType;
                     }
+                } else if (isStack) {
+                    const match = pType.match(/^Stack<(.+)>$/);
+                    const sType = match ? match[1].trim() : 'int';
+                    const parsed = this.parseQueueInput(input.value, sType);
+                    if (parsed.length === 0) {
+                        throw new Error(`אנא הזן לפחות איבר אחד למחסנית ${name}.`);
+                    }
+                    this.initialParams[name] = parsed;
                 } else {
                     let val = input.value.trim();
                     if (pType === 'int') {
@@ -1502,8 +1721,9 @@ public class Program
         if (result && result.params && result.params.length > 0) {
             this.dom.queueInitCard.classList.remove('inactive');
 
-            // עדכון הכרטיסייה הפעילה במדריך הפורמט לפי התור הראשון
+            // עדכון הכרטיסייה הפעילה במדריך הפורמט לפי התור או המחסנית הראשונים
             const primaryQueueParam = result.params.find(p => p.isQueue);
+            const primaryStackParam = result.params.find(p => p.isStack);
             if (primaryQueueParam) {
                 const qType = primaryQueueParam.itemType || 'int';
 
@@ -1535,6 +1755,18 @@ public class Program
                 if (qType !== this.initialQueueType) {
                     this.initialQueueType = qType;
                     typeChanged = true;
+                }
+            } else if (primaryStackParam) {
+                const activeCard = document.getElementById('format-card-stack');
+                if (activeCard) {
+                    activeCard.classList.add('active-type');
+                    const ind = document.createElement('span');
+                    ind.className = 'format-active-indicator';
+                    ind.innerHTML = '⚡ הטיפוס הנוכחי בקוד';
+                    const header = activeCard.querySelector('.format-card-header');
+                    if (header) {
+                        header.appendChild(ind);
+                    }
                 }
             }
 
@@ -1619,6 +1851,64 @@ public class Program
                                     this.initialQueue = newItems;
                                 }
                                 inputEl.value = this.formatQueueInputValue(newItems, qType);
+                                this.recompile();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            });
+                        }
+                    } else if (param.isStack) {
+                        const sType = param.itemType || 'int';
+
+                        if (!this.initialParams[param.name]) {
+                            this.initialParams[param.name] = this.generateRandomStack(sType);
+                            typeChanged = true;
+                        }
+
+                        let typeHeb = 'מספרים שלמים int';
+                        let placeholder = '10, 20, 30, 40, 50';
+                        if (sType === 'char') {
+                            typeHeb = "תווים char (למשל: 'a', 'b', 'c')";
+                            placeholder = "'a', 'b', 'c', 'd'";
+                        } else if (sType === 'string') {
+                            typeHeb = 'מחרוזות string (למשל: "Dana", "Alon")';
+                            placeholder = '"Dana", "Alon", "Maya"';
+                        } else if (sType === 'Point') {
+                            typeHeb = 'נקודות Point (למשל: (10, 20), (30, 40))';
+                            placeholder = '(10, 20), (30, 40), (50, 60)';
+                        } else if (this.isCustomClassType(sType)) {
+                            typeHeb = `אובייקטים מסוג ${sType}`;
+                            placeholder = '(1, 10), (2, 20)';
+                        }
+
+                        const formattedVal = this.formatQueueInputValue(this.initialParams[param.name], sType);
+
+                        card.innerHTML = `
+                            <div class="param-init-header">
+                                <span class="param-init-title">🥞 מחסנית: <code>Stack&lt;${sType}&gt; ${param.name}</code></span>
+                                <span class="param-badge badge-stack">מחסנית ${sType}</span>
+                            </div>
+                            <div class="param-init-row">
+                                <input type="text" class="input-text param-input" data-param-name="${param.name}" data-param-type="${param.type}" data-is-stack="true" placeholder="${placeholder}" value="${formattedVal}" />
+                                <button type="button" class="btn btn-secondary btn-random-single-stack" data-param-name="${param.name}" title="🎲 הגרל ערכים למחסנית ${param.name} בלבד">🎲</button>
+                            </div>
+                            <p class="param-init-hint">
+                                סדר קלט: <strong>[תחתית המחסנית]</strong> ➔ <strong>[ראש המחסנית Top]</strong> (${typeHeb}). מועבר כפרמטר <code>${param.name}</code> לפעולה Main.
+                            </p>
+                        `;
+
+                        const inputEl = card.querySelector('.param-input');
+                        inputEl.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                this.updateQueueFromInput();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            }
+                        });
+
+                        const singleRandBtn = card.querySelector('.btn-random-single-stack');
+                        if (singleRandBtn) {
+                            singleRandBtn.addEventListener('click', () => {
+                                const newItems = this.generateRandomStack(sType);
+                                this.initialParams[param.name] = newItems;
+                                inputEl.value = this.formatQueueInputValue(newItems, sType);
                                 this.recompile();
                                 if (this.switchQueueTab) this.switchQueueTab('queue-view');
                             });
@@ -1743,8 +2033,8 @@ public class Program
         // 4. עדכון סרגל משוב פדגוגי בעברית
         this.renderStatusBanner(frame);
 
-        // 5. רינדור מסלולי התורים
-        this.renderQueues(frame.queues, frame);
+        // 5. רינדור מסלולי התורים והמחסניות (Stage)
+        this.renderStage(frame);
 
         // 6. עדכון מחסנית קריאות (Call Stack)
         this.renderCallStack(frame.callStack);
@@ -1815,19 +2105,54 @@ public class Program
         }
     }
 
-    renderQueues(queues, frame) {
+    renderStage(frame) {
+        if (!this.dom.queuesStage) return;
         this.dom.queuesStage.innerHTML = '';
 
-        if (!queues || queues.length === 0) {
+        const queues = frame.queues || [];
+        const stacks = frame.stacks || [];
+
+        const hasVisibleQueues = queues.length > 0 && this.studioMode !== 'stack';
+        const hasVisibleStacks = stacks.length > 0 && this.studioMode !== 'queue';
+
+        if (!hasVisibleQueues && !hasVisibleStacks) {
+            let emptyIcon = '📦';
+            let emptyTitle = 'אין מבני נתונים פעילים כעת בחלון';
+            let emptyDesc = 'תורים ומחסניות שייווצרו בעת הרצת הקוד (או מועברים כפרמטרים ל-Main) יוצגו כאן אוטומטית.';
+
+            if (this.studioMode === 'stack') {
+                emptyIcon = '🥞';
+                emptyTitle = 'אין מחסניות פעילות כעת בחלון';
+                emptyDesc = 'מחסניות חדשות יוצגו כאן בעת הרצת <code>new Stack&lt;T&gt;()</code> או כאשר פעולת <code>Main</code> מקבלת מחסנית כפרמטר.';
+            } else if (this.studioMode === 'queue') {
+                emptyIcon = '🔄';
+                emptyTitle = 'אין תורים פעילים כעת בחלון';
+                emptyDesc = 'תורים חדשים יוצגו כאן בעת הרצת <code>new Queue&lt;T&gt;()</code> או כאשר פעולת <code>Main</code> מקבלת תור כפרמטר.';
+            }
+
             this.dom.queuesStage.innerHTML = `
                 <div class="queue-empty-stage">
-                    <span class="empty-stage-icon">📦</span>
-                    <p class="empty-stage-title">אין תורים פעילים כעת בחלון</p>
-                    <p class="empty-stage-desc">תורים חדשים ייווצרו ויוצגו כאן בעת הרצת <code>new Queue&lt;int&gt;()</code> בקוד, או כאשר פעולת <code>Main</code> מקבלת תור כפרמטר.</p>
+                    <span class="empty-stage-icon">${emptyIcon}</span>
+                    <p class="empty-stage-title">${emptyTitle}</p>
+                    <p class="empty-stage-desc">${emptyDesc}</p>
                 </div>
             `;
             return;
         }
+
+        // רינדור תורים
+        if (queues.length > 0) {
+            this.renderQueues(queues, frame);
+        }
+
+        // רינדור מחסניות
+        if (stacks.length > 0) {
+            this.renderStacks(stacks, frame);
+        }
+    }
+
+    renderQueues(queues, frame) {
+        if (!queues || queues.length === 0) return;
 
         queues.forEach((q) => {
             const trackCard = document.createElement('div');
@@ -2003,6 +2328,103 @@ public class Program
             }
 
             this.dom.queuesStage.appendChild(trackCard);
+        });
+    }
+
+    renderStacks(stacks, frame) {
+        if (!stacks || stacks.length === 0) return;
+
+        stacks.forEach((s) => {
+            const stackCard = document.createElement('div');
+            stackCard.className = 'stack-track-card';
+            if (s.lastOp && s.lastOp !== 'none') {
+                stackCard.classList.add('active-target');
+            }
+
+            stackCard.dataset.stackName = s.name;
+            stackCard.draggable = true;
+
+            let gateAnimClass = '';
+            if (s.lastOp === 'pop') gateAnimClass = 'anim-pop';
+            else if (s.lastOp === 'push') gateAnimClass = 'anim-push';
+            else if (s.lastOp === 'top') gateAnimClass = 'anim-top';
+
+            stackCard.innerHTML = `
+                <div class="stack-track-header">
+                    <div class="stack-title-box">
+                        <span class="queue-drag-handle" title="לחץ וגרור כדי לשנות את סדר המבנים">⠿</span>
+                        <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:#9333ea;"></span>
+                        <span class="stack-name-title">Stack&lt;${s.itemType || 'int'}&gt; <strong>${s.name}</strong></span>
+                        <span class="stack-type-badge">מחסנית</span>
+                    </div>
+                    <div class="stack-count-badge">כמות איברים: <strong>${s.items.length}</strong></div>
+                </div>
+
+                <div class="stack-top-gate ${gateAnimClass}" title="ראש המחסנית (Top) - כניסה (Push) ויציאה (Pop) מלמעלה">
+                    <span class="gate-icon">🔝</span>
+                    <span class="gate-title">ראש המחסנית (Top)</span>
+                </div>
+
+                <div class="stack-canister" id="canister-${s.name}">
+                </div>
+            `;
+
+            const canister = stackCard.querySelector(`#canister-${s.name}`);
+
+            if (s.items.length === 0) {
+                canister.innerHTML = '<div class="stack-canister-empty">[ מחסנית ריקה ]</div>';
+            } else {
+                s.items.forEach((itemVal, idx) => {
+                    const isTop = (idx === s.items.length - 1);
+                    const el = document.createElement('div');
+                    el.className = 'stack-element';
+
+                    if (isTop) {
+                        el.classList.add('is-top');
+                        if (s.lastOp === 'push') {
+                            el.classList.add('op-push');
+                        }
+                    }
+
+                    if (itemVal && typeof itemVal === 'object' && itemVal.isClass) {
+                        el.classList.add('node-complex', 'node-custom-class');
+                        const fieldsHtml = Object.entries(itemVal.fields || {})
+                            .map(([k, v]) => `<div class="field-item"><span class="field-key">${k}:</span> <strong class="field-val">${v}</strong></div>`)
+                            .join('');
+                        let toStrHtml = '';
+                        if (itemVal.toStringVal && !itemVal.toStringVal.startsWith(itemVal.className + ' {')) {
+                            toStrHtml = `<div class="class-card-tostring">${this.escapeHtml(itemVal.toStringVal)}</div>`;
+                        }
+                        el.innerHTML = `
+                            <div class="custom-class-card">
+                                <div class="class-card-header">
+                                    <span class="class-icon">📦</span>
+                                    <span class="class-title">${this.escapeHtml(itemVal.className)}</span>
+                                </div>
+                                <div class="class-card-fields">${fieldsHtml}</div>
+                                ${toStrHtml}
+                            </div>
+                        `;
+                    } else {
+                        let displayVal = itemVal;
+                        let valClass = 'stack-val';
+                        if (typeof itemVal === 'string') {
+                            if (s.itemType === 'char') {
+                                displayVal = `'${itemVal}'`;
+                                valClass += ' val-char';
+                            } else {
+                                displayVal = `"${itemVal}"`;
+                                valClass += ' val-string';
+                            }
+                        }
+                        el.innerHTML = `<span class="${valClass}" title="${itemVal}">${this.escapeHtml(displayVal)}</span>`;
+                    }
+
+                    canister.appendChild(el);
+                });
+            }
+
+            this.dom.queuesStage.appendChild(stackCard);
         });
     }
 
@@ -2395,22 +2817,22 @@ public class Program
             }
         }, true);
 
-        // 2. Drag & Drop Reordering for Queue Cards (when multiple queues exist)
+        // 2. Drag & Drop Reordering for Queue & Stack Cards
         let draggedCard = null;
 
         stage.addEventListener('dragstart', (e) => {
-            const card = e.target.closest('.queue-track-card');
+            const card = e.target.closest('.queue-track-card, .stack-track-card');
             if (!card) return;
             draggedCard = card;
             card.classList.add('is-dragging-card');
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', card.dataset.queueName || '');
+            e.dataTransfer.setData('text/plain', card.dataset.queueName || card.dataset.stackName || '');
         });
 
         stage.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            const targetCard = e.target.closest('.queue-track-card');
+            const targetCard = e.target.closest('.queue-track-card, .stack-track-card');
             if (targetCard && targetCard !== draggedCard) {
                 const rect = targetCard.getBoundingClientRect();
                 const isAfter = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;

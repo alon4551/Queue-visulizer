@@ -101,6 +101,45 @@ body {
     color: #94a3b8;
 }
 
+/* בורר מצבי סטודיו (Studio Mode Bar) */
+.studio-mode-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 0.25rem 0.4rem;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.btn-studio-mode {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.25rem 0.65rem;
+    border-radius: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-studio-mode:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-studio-mode.active {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #ffffff;
+    border-color: #818cf8;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
 /* פריסת תוכן ראשית (Zero-Scroll Viewport Grid) - ימין: המחשה, שמאל: עורך עם מפריד שינוי רוחב */
 .main-container {
     max-width: 1800px;
@@ -2421,4 +2460,200 @@ body.queue-dragging-active * {
     margin-top: 0;
     background: #ffffff;
     flex-shrink: 0;
+}
+
+/* =========================================
+   מחסנית (Stack Canister) - תקן משרד החינוך
+   ========================================= */
+
+/* סינון תצוגה לפי מצב הסטודיו */
+.queues-stage.mode-queue .stack-track-card {
+    display: none !important;
+}
+.queues-stage.mode-stack .queue-track-card {
+    display: none !important;
+}
+
+.stack-track-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 170px;
+    max-width: 220px;
+    background: #ffffff;
+    border: 2px solid #8b5cf6;
+    border-radius: 14px;
+    box-shadow: var(--shadow-md);
+    padding: 0.65rem;
+    position: relative;
+    flex-shrink: 0;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stack-track-card:hover {
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.18);
+}
+
+.stack-track-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #ede9fe;
+}
+
+.stack-title-box {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.stack-name-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #5b21b6;
+}
+
+.stack-type-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 12px;
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+}
+
+.stack-count-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+/* שער עליון - ראש המחסנית (Top) */
+.stack-top-gate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.45rem;
+    background: #faf5ff;
+    border: 2px dashed #a855f7;
+    border-radius: 8px 8px 0 0;
+    color: #7e22ce;
+    font-size: 0.78rem;
+    font-weight: 700;
+    user-select: none;
+    margin-bottom: -2px;
+    z-index: 2;
+}
+
+/* מכל המחסנית האנכי (LIFO Canister) */
+.stack-canister {
+    display: flex;
+    flex-direction: column-reverse; /* פריטים נערמים מלמטה למעלה */
+    gap: 6px;
+    min-height: 180px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #fdf4ff;
+    border-left: 3px solid #8b5cf6;
+    border-right: 3px solid #8b5cf6;
+    border-bottom: 4px solid #6d28d9;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+    box-shadow: inset 0 3px 6px rgba(109, 40, 217, 0.08);
+}
+
+.stack-canister-empty {
+    margin: auto;
+    color: #a855f7;
+    font-size: 0.78rem;
+    font-style: italic;
+    text-align: center;
+    padding: 1rem 0.5rem;
+}
+
+/* איבר בתוך המחסנית */
+.stack-element {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.65rem;
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: #ffffff;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    font-family: 'Consolas', 'Courier New', monospace;
+    box-shadow: 0 2px 5px rgba(109, 40, 217, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    user-select: none;
+    transition: all 0.25s ease;
+}
+
+/* איבר ראש המחסנית (Top Element) */
+.stack-element.is-top {
+    background: linear-gradient(135deg, #9333ea, #c026d3);
+    border: 2px solid #f472b6;
+    box-shadow: 0 0 12px rgba(192, 38, 211, 0.4);
+}
+
+.stack-element.is-top::after {
+    content: "🔝 Top";
+    position: absolute;
+    top: -9px;
+    right: 6px;
+    background: #db2777;
+    color: #ffffff;
+    font-size: 0.62rem;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+
+/* אנימציית Push */
+.stack-element.op-push {
+    animation: stackPushIn 0.35s ease-out;
+}
+
+/* אנימציית Pop */
+.stack-element.op-pop {
+    animation: stackPopOut 0.35s ease-in;
+}
+
+@keyframes stackPushIn {
+    from {
+        opacity: 0;
+        transform: translateY(-25px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes stackPopOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-25px) scale(0.9);
+    }
+}
+
+/* תגית Stack */
+.badge-stack,
+.format-badge-stack {
+    background: #ede9fe !important;
+    color: #6d28d9 !important;
+    border: 1px solid #c4b5fd !important;
 }

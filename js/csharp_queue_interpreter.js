@@ -53,6 +53,7 @@ class CSharpQueueInterpreter {
                 description: `❌ שגיאת ריצה: ${err.message}`,
                 callStack: lastFrame ? lastFrame.callStack : [{ funcName: 'שגיאה', line: errorLine, file: errorFile, variables: {} }],
                 queues: lastFrame ? lastFrame.queues : [{ name: 'q', items: [...(Array.isArray(initialQueueValues) ? initialQueueValues : (initialQueueValues && initialQueueValues.q ? initialQueueValues.q : []))], op: 'none' }],
+                stacks: lastFrame ? lastFrame.stacks : [],
                 variables: lastFrame ? lastFrame.variables : {},
                 consoleOutputs: lastFrame && lastFrame.consoleOutputs ? [...lastFrame.consoleOutputs] : [],
                 error: err.message,
@@ -498,7 +499,9 @@ class Parser {
         let i = 0;
         let tok = this.peek(i);
         while (['public', 'private', 'protected', 'static', 'override', 'virtual', 'void', 'int', 'char', 'bool', 'double', 'string', 'var'].includes(tok.value) ||
-               tok.value.startsWith('Queue<') || tok.value.startsWith('Queue') || (this.knownClasses && this.knownClasses.has(tok.value))) {
+               tok.value.startsWith('Queue<') || tok.value.startsWith('Queue') ||
+               tok.value.startsWith('Stack<') || tok.value.startsWith('Stack') ||
+               (this.knownClasses && this.knownClasses.has(tok.value))) {
             i++;
             tok = this.peek(i);
         }
@@ -639,7 +642,7 @@ class Parser {
     isType(val) {
         if (!val) return false;
         if (['int', 'char', 'double', 'bool', 'string', 'void', 'var'].includes(val)) return true;
-        if (val.startsWith('Queue')) return true;
+        if (val.startsWith('Queue') || val.startsWith('Stack')) return true;
         if (this.knownClasses && this.knownClasses.has(val)) return true;
         const next = this.peek(1);
         const nextNext = this.peek(2);
@@ -990,6 +993,64 @@ class QueueInstance {
 }
 
 /**
+ * מודל המחסנית (Stack) לפי תקן משרד החינוך
+ */
+class StackInstance {
+    constructor(name, initialItems = [], itemType = 'int') {
+        this.id = 'st_' + Math.random().toString(36).substring(2, 9);
+        this.name = name;
+        this.itemType = itemType;
+        // אינדקס 0 = תחתית המחסנית (Bottom), אינדקס length-1 = ראש המחסנית (Top)
+        this.items = [...initialItems];
+        this.lastOp = 'none';
+        this.targetVal = null;
+    }
+
+    push(val) {
+        this.items.push(val);
+        this.lastOp = 'push';
+        this.targetVal = val;
+    }
+
+    pop() {
+        if (this.isEmpty()) {
+            throw new Error(`StackEmptyException: ניסיון לשלוף איבר (Pop) מתוך מחסנית '${this.name}' כשהיא ריקה!`);
+        }
+        const val = this.items.pop();
+        this.lastOp = 'pop';
+        this.targetVal = val;
+        return val;
+    }
+
+    top() {
+        if (this.isEmpty()) {
+            throw new Error(`StackEmptyException: ניסיון להציץ בראש המחסנית (Top) במחסנית '${this.name}' כשהיא ריקה!`);
+        }
+        this.lastOp = 'top';
+        this.targetVal = this.items[this.items.length - 1];
+        return this.targetVal;
+    }
+
+    isEmpty() {
+        return this.items.length === 0;
+    }
+
+    clone(newName) {
+        const clonedItems = this.items.map(it => {
+            if (it instanceof QueueInstance || it instanceof StackInstance || it instanceof ClassInstance) return it.clone();
+            return it;
+        });
+        const copy = new StackInstance(newName || this.name, clonedItems, this.itemType);
+        copy.id = this.id;
+        return copy;
+    }
+
+    toString() {
+        return `[Bottom -> ${this.items.join(', ')} -> Top]`;
+    }
+}
+
+/**
  * סביבת הרצה המייצרת את ה-Trace עבור הדיבאגר
  */
 class RuntimeEnvironment {
@@ -1008,11 +1069,19 @@ class RuntimeEnvironment {
             }
         }
 
-        // מפת התורים הפעילים (תתחיל ריקה אלא אם כן נזהה פרמטר Queue בארגומנטים)
+        // מפת התורים הפעילים
         this.queues = new Map();
         this.hasInitialQueue = false;
         this.initialQueueName = null;
         this.initialQueueSnapshot = [];
+
+        // מפת המחסניות הפעילות (תקן משרד החינוך)
+        this.stacks = new Map();
+        this.hasInitialStack = false;
+        this.initialStackName = null;
+        this.initialStackType = 'int';
+        this.initialStacksList = [];
+        this.initialStacksSnapshotList = [];
 
         // פונקציות זמינות
         this.functions = new Map();
@@ -1080,6 +1149,33 @@ class RuntimeEnvironment {
                         this.initialQueueType = qType;
                         this.initialQueueSnapshot = this.snapshotItems(queueInst.items);
                     }
+                } else if (param.type.startsWith('Stack')) {
+                    const match = param.type.match(/^Stack<(.+)>$/);
+                    const stType = match ? match[1].trim() : 'int';
+                    const itemsToUse = (rawVal !== undefined && rawVal !== null)
+                        ? rawVal
+                        : this.generateDefaultStackValues(stType, pIdx);
+
+                    const stackInst = this.buildStackInstance(param.name, itemsToUse, stType);
+                    this.stacks.set(param.name, stackInst);
+                    initialArgs.push(stackInst);
+
+                    this.initialStacksList.push({
+                        name: param.name,
+                        type: stType,
+                        items: this.snapshotItems(stackInst.items)
+                    });
+                    this.initialStacksSnapshotList.push({
+                        name: param.name,
+                        items: this.snapshotItems(stackInst.items)
+                    });
+
+                    if (!this.hasInitialStack) {
+                        this.hasInitialStack = true;
+                        this.initialStackName = param.name;
+                        this.initialStackType = stType;
+                        this.initialStackSnapshot = this.snapshotItems(stackInst.items);
+                    }
                 } else {
                     const parsedVal = this.parsePrimitiveParamValue(rawVal, param.type, param.name);
                     initialArgs.push(parsedVal);
@@ -1089,10 +1185,15 @@ class RuntimeEnvironment {
 
         // הוספת פסיעת התחלה
         let startMsg = 'התחלת ריצת התוכנית';
-        if (this.initialQueuesList.length === 1) {
-            startMsg = `התחלת ריצת התוכנית (אותחל תור ${this.initialQueuesList[0].name})`;
-        } else if (this.initialQueuesList.length > 1) {
-            startMsg = `התחלת ריצת התוכנית (אותחלו ${this.initialQueuesList.length} תורים: ${this.initialQueuesList.map(q => q.name).join(', ')})`;
+        const inits = [];
+        if (this.initialQueuesList.length > 0) {
+            inits.push(`${this.initialQueuesList.length} תורים (${this.initialQueuesList.map(q => q.name).join(', ')})`);
+        }
+        if (this.initialStacksList.length > 0) {
+            inits.push(`${this.initialStacksList.length} מחסניות (${this.initialStacksList.map(s => s.name).join(', ')})`);
+        }
+        if (inits.length > 0) {
+            startMsg = `התחלת ריצת התוכנית (אותחלו ${inits.join(', ')})`;
         }
         this.recordFrame(1, startMsg, 'idle');
 
@@ -1108,12 +1209,12 @@ class RuntimeEnvironment {
             this.callStack.pop();
         }
 
-        // בדיקת שימור תור מקורי בסיום - עבור כל התורים שהוגדרו בארגומנטים!
+        // בדיקת שימור תורים ומחסניות מקוריות בסיום כנדרש בבגרות
         let originalPreserved = true;
         let endDesc = 'התוכנית הסתיימה בהצלחה!';
 
+        const modifiedStructures = [];
         if (this.initialQueuesSnapshotList && this.initialQueuesSnapshotList.length > 0) {
-            const modifiedQueues = [];
             for (const initQ of this.initialQueuesSnapshotList) {
                 const finalQ = this.queues.get(initQ.name);
                 let preserved = true;
@@ -1129,19 +1230,36 @@ class RuntimeEnvironment {
                 }
                 if (!preserved) {
                     originalPreserved = false;
-                    modifiedQueues.push(initQ.name);
+                    modifiedStructures.push(`תור ${initQ.name}`);
                 }
             }
+        }
 
-            if (originalPreserved) {
-                if (this.initialQueuesSnapshotList.length === 1) {
-                    endDesc = `התוכנית הסתיימה בהצלחה! התור המקורי ${this.initialQueuesSnapshotList[0].name} נשמר במלואו כנדרש בבגרות.`;
+        if (this.initialStacksSnapshotList && this.initialStacksSnapshotList.length > 0) {
+            for (const initS of this.initialStacksSnapshotList) {
+                const finalS = this.stacks.get(initS.name);
+                let preserved = true;
+                if (!finalS || finalS.items.length !== initS.items.length) {
+                    preserved = false;
                 } else {
-                    endDesc = `התוכנית הסתיימה בהצלחה! כל התורים המקוריים (${this.initialQueuesSnapshotList.map(q => q.name).join(', ')}) נשמרו במלואם.`;
+                    for (let i = 0; i < initS.items.length; i++) {
+                        if (this.formatVal(finalS.items[i]) !== this.formatVal(initS.items[i])) {
+                            preserved = false;
+                            break;
+                        }
+                    }
                 }
-            } else {
-                endDesc = `התוכנית הסתיימה, אך שים לב: התור/ים (${modifiedQueues.join(', ')}) לא שוחזרו למצבם המקורי (הפרת כלל הברזל בבגרות)!`;
+                if (!preserved) {
+                    originalPreserved = false;
+                    modifiedStructures.push(`מחסנית ${initS.name}`);
+                }
             }
+        }
+
+        if (modifiedStructures.length > 0) {
+            endDesc = `התוכנית הסתיימה, אך שים לב: המבנה/ים (${modifiedStructures.join(', ')}) לא שוחזרו למצבם המקורי (הפרת כלל הברזל בבגרות)!`;
+        } else if (this.initialQueuesSnapshotList.length > 0 || this.initialStacksSnapshotList.length > 0) {
+            endDesc = `התוכנית הסתיימה בהצלחה! כל מבני הנתונים המקוריים נשמרו במלואם כנדרש בבגרות.`;
         }
 
         this.recordFrame(this.frames.length > 0 ? this.frames[this.frames.length - 1].line : 1, endDesc, 'idle', true, originalPreserved);
@@ -1153,11 +1271,17 @@ class RuntimeEnvironment {
             initialQueueName: this.initialQueueName,
             initialQueueType: this.initialQueueType || 'int',
             initialQueuesList: this.initialQueuesList,
+            hasInitialStack: this.hasInitialStack,
+            initialStackName: this.initialStackName,
+            initialStackType: this.initialStackType || 'int',
+            initialStacksList: this.initialStacksList,
             params: entryFunction ? entryFunction.params.map(p => ({
                 name: p.name,
                 type: p.type,
                 isQueue: p.type.startsWith('Queue'),
-                queueItemType: p.type.startsWith('Queue') ? (p.type.match(/^Queue<(.+)>$/) ? p.type.match(/^Queue<(.+)>$/)[1].trim() : 'int') : null
+                queueItemType: p.type.startsWith('Queue') ? (p.type.match(/^Queue<(.+)>$/) ? p.type.match(/^Queue<(.+)>$/)[1].trim() : 'int') : null,
+                isStack: p.type.startsWith('Stack'),
+                stackItemType: p.type.startsWith('Stack') ? (p.type.match(/^Stack<(.+)>$/) ? p.type.match(/^Stack<(.+)>$/)[1].trim() : 'int') : null
             })) : [],
             originalPreserved,
             consoleOutputs: this.consoleOutputs
@@ -1324,6 +1448,111 @@ class RuntimeEnvironment {
         return pIdx === 0 ? [14, 7, 25, 9, 31] : [4, 18, 5, 2];
     }
 
+    buildStackInstance(paramName, rawValues, stType) {
+        let stackInst;
+        if (stType.startsWith('Stack')) {
+            const subType = stType.match(/^Stack<(.+)>$/) ? stType.match(/^Stack<(.+)>$/)[1].trim() : 'int';
+            stackInst = new StackInstance(paramName, [], stType);
+            this.stacks.set(paramName, stackInst);
+            if (Array.isArray(rawValues)) {
+                rawValues.forEach((sub, sIdx) => {
+                    if (sub instanceof StackInstance) {
+                        stackInst.push(sub);
+                    } else if (Array.isArray(sub)) {
+                        const subSt = new StackInstance(`${paramName}_sub_${sIdx + 1}`, sub, subType);
+                        this.stacks.set(subSt.name, subSt);
+                        stackInst.push(subSt);
+                    }
+                });
+            }
+        } else if (this.classes.has(stType) || (!['int', 'char', 'string', 'bool', 'double', 'float', 'long'].includes(stType) && !stType.startsWith('Stack') && !stType.startsWith('Queue'))) {
+            const classDecl = this.classes.get(stType);
+            const fieldMeta = new Map();
+            const propMeta = new Map();
+            if (classDecl) {
+                for (const f of classDecl.fields) {
+                    fieldMeta.set(f.name, { access: f.access || 'private', type: f.type });
+                }
+                if (classDecl.properties) {
+                    for (const p of classDecl.properties) {
+                        propMeta.set(p.name, p);
+                    }
+                }
+            }
+            stackInst = new StackInstance(paramName, [], stType);
+            if (Array.isArray(rawValues)) {
+                rawValues.forEach(val => {
+                    if (val instanceof ClassInstance) {
+                        stackInst.push(val);
+                    } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+                        const rawFields = val.fields || val;
+                        const inst = new ClassInstance(stType, {}, fieldMeta, propMeta);
+                        if (classDecl) {
+                            for (const f of classDecl.fields) {
+                                let defaultVal = 0;
+                                if (f.type === 'string') defaultVal = '';
+                                else if (f.type === 'bool') defaultVal = false;
+                                else if (f.type === 'char') defaultVal = ' ';
+                                inst.fields[f.name] = defaultVal;
+                            }
+                            for (const m of classDecl.methods) {
+                                inst.methods.set(m.name, m);
+                            }
+                        }
+                        Object.assign(inst.fields, rawFields);
+                        stackInst.push(inst);
+                    } else if (Array.isArray(val)) {
+                        const inst = new ClassInstance(stType, {}, fieldMeta, propMeta);
+                        if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                            classDecl.fields.forEach((f, fIdx) => {
+                                inst.fields[f.name] = val[fIdx] !== undefined ? val[fIdx] : (f.type === 'string' ? '' : 0);
+                            });
+                            for (const m of classDecl.methods) {
+                                inst.methods.set(m.name, m);
+                            }
+                        } else {
+                            val.forEach((item, idx) => {
+                                inst.fields[`val_${idx + 1}`] = item;
+                            });
+                        }
+                        stackInst.push(inst);
+                    } else if (val !== null && val !== undefined) {
+                        const inst = new ClassInstance(stType, {}, fieldMeta, propMeta);
+                        if (classDecl && classDecl.fields && classDecl.fields.length > 0) {
+                            inst.fields[classDecl.fields[0].name] = val;
+                            for (const m of classDecl.methods) {
+                                inst.methods.set(m.name, m);
+                            }
+                        } else {
+                            inst.fields['value'] = val;
+                        }
+                        stackInst.push(inst);
+                    }
+                });
+            }
+        } else {
+            const arr = Array.isArray(rawValues) ? rawValues : [];
+            stackInst = new StackInstance(paramName, arr, stType);
+        }
+        return stackInst;
+    }
+
+    generateDefaultStackValues(stType, pIdx) {
+        if (stType === 'char') {
+            return pIdx === 0 ? ['a', 'b', 'c', 'd'] : ['x', 'y', 'z'];
+        }
+        if (stType === 'string') {
+            return pIdx === 0 ? ['apple', 'banana', 'cherry'] : ['first', 'second', 'third'];
+        }
+        if (stType === 'Point') {
+            return [{ x: 10, y: 20 }, { x: 30, y: 40 }, { x: 50, y: 60 }];
+        }
+        if (stType.startsWith('Stack')) {
+            return [[10, 20], [30, 40], [50, 60]];
+        }
+        return pIdx === 0 ? [10, 20, 30, 40] : [5, 15, 25, 35];
+    }
+
     executeFunction(fn, args = []) {
         const scope = new Map();
 
@@ -1336,6 +1565,10 @@ class RuntimeEnvironment {
             // אם הפרמטר הוא תור, נרשום אותו במפת התורים
             if (argVal instanceof QueueInstance) {
                 this.queues.set(param.name, argVal);
+            }
+            // אם הפרמטר הוא מחסנית, נרשום אותה במפת המחסניות
+            if (argVal instanceof StackInstance) {
+                this.stacks.set(param.name, argVal);
             }
         }
 
@@ -1390,6 +1623,7 @@ class RuntimeEnvironment {
                     val = this.evaluateExpression(stmt.init, scope);
                 }
                 const isQueue = stmt.varType.startsWith('Queue') || (val instanceof QueueInstance);
+                const isStack = stmt.varType.startsWith('Stack') || (val instanceof StackInstance);
                 if (isQueue) {
                     const match = stmt.varType.match(/^Queue<(.+)>$/);
                     const qType = match ? match[1].trim() : (val instanceof QueueInstance ? (val.itemType || 'int') : 'int');
@@ -1402,6 +1636,18 @@ class RuntimeEnvironment {
                     this.queues.set(stmt.varName, val);
                     scope.set(stmt.varName, val);
                     this.recordFrame(stmt.line, `אתחול ויצירת תור חדש בחלון: ${stmt.varName} = new ${stmt.varType || 'Queue'}()`, 'idle', false, null, stmt.varName);
+                } else if (isStack) {
+                    const match = stmt.varType.match(/^Stack<(.+)>$/);
+                    const stType = match ? match[1].trim() : (val instanceof StackInstance ? (val.itemType || 'int') : 'int');
+                    if (!(val instanceof StackInstance)) {
+                        val = new StackInstance(stmt.varName, [], stType);
+                    } else {
+                        val.name = stmt.varName;
+                        if (!val.itemType) val.itemType = stType;
+                    }
+                    this.stacks.set(stmt.varName, val);
+                    scope.set(stmt.varName, val);
+                    this.recordFrame(stmt.line, `אתחול ויצירת מחסנית חדשה בחלון: ${stmt.varName} = new ${stmt.varType || 'Stack'}()`, 'idle', false, null, null, null, stmt.varName);
                 } else {
                     scope.set(stmt.varName, val);
                     this.recordFrame(stmt.line, `הצהרה על משתנה ${stmt.varName} = ${this.formatVal(val)}`);
@@ -1664,6 +1910,12 @@ class RuntimeEnvironment {
                             this.recordFrame(expr.line, `אתחול והשמת תור חדש בחלון: ${targetName} = new Queue()`, 'idle', false, null, targetName);
                             return finalVal;
                         }
+                        if (finalVal instanceof StackInstance) {
+                            finalVal.name = targetName;
+                            this.stacks.set(targetName, finalVal);
+                            this.recordFrame(expr.line, `אתחול והשמת מחסנית חדשה בחלון: ${targetName} = new Stack()`, 'idle', false, null, null, null, targetName);
+                            return finalVal;
+                        }
                         this.recordFrame(expr.line, `השמה: ${targetName} = ${this.formatVal(finalVal)}`);
                         return finalVal;
                     }
@@ -1714,6 +1966,12 @@ class RuntimeEnvironment {
                         finalVal.name = targetName;
                         this.queues.set(targetName, finalVal);
                         this.recordFrame(expr.line, `אתחול והשמת תור חדש בחלון: ${targetName} = new Queue()`, 'idle', false, null, targetName);
+                        return finalVal;
+                    }
+                    if (finalVal instanceof StackInstance) {
+                        finalVal.name = targetName;
+                        this.stacks.set(targetName, finalVal);
+                        this.recordFrame(expr.line, `אתחול והשמת מחסנית חדשה בחלון: ${targetName} = new Stack()`, 'idle', false, null, null, null, targetName);
                         return finalVal;
                     }
 
@@ -1828,6 +2086,16 @@ class RuntimeEnvironment {
                     }
                     const newQ = new QueueInstance('temp_' + (this.queues.size + 1), [], innerType);
                     return newQ;
+                }
+
+                if (expr.className.startsWith('Stack')) {
+                    let innerType = 'int';
+                    const stMatch = expr.className.match(/^Stack<(.+)>$/);
+                    if (stMatch) {
+                        innerType = stMatch[1].trim();
+                    }
+                    const newSt = new StackInstance('temp_st_' + (this.stacks.size + 1), [], innerType);
+                    return newSt;
                 }
 
                 if (this.classes.has(expr.className)) {
@@ -2048,8 +2316,40 @@ class RuntimeEnvironment {
                         throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' בתור` };
                     }
                 }
+
+                if (obj instanceof StackInstance) {
+                    const methodName = expr.method;
+                    if (methodName === 'Push') {
+                        const pushVal = this.evaluateExpression(expr.arguments[0], scope);
+                        obj.push(pushVal);
+                        this.recordFrame(expr.line, `פעולת ${obj.name}.Push(${this.formatVal(pushVal)}): דחיפת ${this.formatVal(pushVal)} לראש המחסנית`, 'push', false, null, null, pushVal, obj.name);
+                        return null;
+                    } else if (methodName === 'Pop') {
+                        try {
+                            const poppedVal = obj.pop();
+                            this.recordFrame(expr.line, `פעולת ${obj.name}.Pop(): שליפת ${this.formatVal(poppedVal)} מראש המחסנית`, 'pop', false, null, null, poppedVal, obj.name);
+                            return poppedVal;
+                        } catch (err) {
+                            throw { line: expr.line, message: err.message };
+                        }
+                    } else if (methodName === 'Top') {
+                        try {
+                            const topVal = obj.top();
+                            this.recordFrame(expr.line, `פעולת ${obj.name}.Top(): הצצה בראש המחסנית (${this.formatVal(topVal)}) ללא שינוי`, 'top', false, null, null, topVal, obj.name);
+                            return topVal;
+                        } catch (err) {
+                            throw { line: expr.line, message: err.message };
+                        }
+                    } else if (methodName === 'IsEmpty') {
+                        const isEmpty = obj.isEmpty();
+                        this.recordFrame(expr.line, `פעולת ${obj.name}.IsEmpty(): בדיקת ריקנות -> ${isEmpty ? 'אמת (true)' : 'שקר (false)'}`, 'idle', false, null, null, null, obj.name);
+                        return isEmpty;
+                    } else {
+                        throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' במחסנית (לפי תקן משרד החינוך הפעולות הן: Push, Pop, Top, IsEmpty)` };
+                    }
+                }
                 const targetObjName = expr.object && expr.object.name ? `'${expr.object.name}'` : 'האובייקט';
-                throw { line: expr.line, message: `${targetObjName} אינו תור או אובייקט מאותחל` };
+                throw { line: expr.line, message: `${targetObjName} אינו תור, מחסנית או אובייקט מאותחל` };
             }
 
             case 'FunctionCallExpression': {
@@ -2129,6 +2429,22 @@ class RuntimeEnvironment {
                     items: this.snapshotItems(item.items)
                 };
             }
+            if (item instanceof StackInstance) {
+                return {
+                    isStack: true,
+                    name: item.name,
+                    itemType: item.itemType || 'int',
+                    items: this.snapshotItems(item.items)
+                };
+            }
+            if (item && typeof item === 'object' && item.isStack) {
+                return {
+                    isStack: true,
+                    name: item.name,
+                    itemType: item.itemType || 'int',
+                    items: this.snapshotItems(item.items)
+                };
+            }
             if (item && typeof item === 'object' && item.isClass) {
                 return { ...item, fields: { ...item.fields } };
             }
@@ -2136,7 +2452,7 @@ class RuntimeEnvironment {
         });
     }
 
-    recordFrame(line, description, opType = 'idle', isCompleted = false, originalPreserved = null, targetQueueName = null, targetValue = null) {
+    recordFrame(line, description, opType = 'idle', isCompleted = false, originalPreserved = null, targetQueueName = null, targetValue = null, targetStackName = null) {
         this.stepCount++;
 
         // שכפול מצב התורים כולל אובייקטים ותורים מקוננים (Deep Snapshotting)
@@ -2149,6 +2465,19 @@ class RuntimeEnvironment {
                 items: this.snapshotItems(qInst.items),
                 lastOp: (targetQueueName === qName) ? opType : 'none',
                 targetVal: (targetQueueName === qName) ? (targetValue instanceof ClassInstance ? targetValue.clone() : (targetValue instanceof QueueInstance ? targetValue.clone() : targetValue)) : null
+            });
+        });
+
+        // שכפול מצב המחסניות כולל אובייקטים (Deep Snapshotting)
+        const stacksSnapshot = [];
+        this.stacks.forEach((stInst, stName) => {
+            stacksSnapshot.push({
+                name: stName,
+                id: stInst.id,
+                itemType: stInst.itemType || 'int',
+                items: this.snapshotItems(stInst.items),
+                lastOp: (targetStackName === stName) ? opType : 'none',
+                targetVal: (targetStackName === stName) ? (targetValue instanceof ClassInstance ? targetValue.clone() : (targetValue instanceof StackInstance ? targetValue.clone() : (targetValue instanceof QueueInstance ? targetValue.clone() : targetValue))) : null
             });
         });
 
@@ -2177,6 +2506,7 @@ class RuntimeEnvironment {
             description,
             callStack: callStackSnapshot,
             queues: queuesSnapshot,
+            stacks: stacksSnapshot,
             variables: activeVariables,
             consoleOutputs: [...this.consoleOutputs],
             error: null,
@@ -2199,6 +2529,9 @@ class RuntimeEnvironment {
         if (val instanceof QueueInstance) {
             return `Queue [${val.items.map(it => this.formatVal(it)).join(', ')}]`;
         }
+        if (val instanceof StackInstance) {
+            return `Stack [${val.items.map(it => this.formatVal(it)).join(', ')}]`;
+        }
         if (val instanceof ClassInstance) {
             if (val.methods && val.methods.has('ToString')) {
                 try {
@@ -2216,6 +2549,9 @@ class RuntimeEnvironment {
         }
         if (val && typeof val === 'object' && val.isQueue) {
             return `Queue [${val.items.map(it => this.formatVal(it)).join(', ')}]`;
+        }
+        if (val && typeof val === 'object' && val.isStack) {
+            return `Stack [${val.items.map(it => this.formatVal(it)).join(', ')}]`;
         }
         if (val && typeof val === 'object' && val.isClass) {
             if (val.toStringVal) return val.toStringVal;
@@ -2239,8 +2575,9 @@ class RuntimeEnvironment {
 if (typeof window !== 'undefined') {
     window.CSharpQueueInterpreter = CSharpQueueInterpreter;
     window.QueueInstance = QueueInstance;
+    window.StackInstance = StackInstance;
     window.ClassInstance = ClassInstance;
 }
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { CSharpQueueInterpreter, QueueInstance, ClassInstance, RuntimeEnvironment };
+    module.exports = { CSharpQueueInterpreter, QueueInstance, StackInstance, ClassInstance, RuntimeEnvironment };
 }

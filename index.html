@@ -66,11 +66,34 @@
             <div class="brand-title">
                 <div class="brand-icon">🔄</div>
                 <div>
-                    <h1>מאייר ומפרש תור ב-C# (Queue Visualizer)</h1>
+                    <h1>סטודיו מבני נתונים ב-C# (Data Structures Studio)</h1>
                     <p>מרכז מדעי המחשב — אלון שרייבמן | שכבת י"ב (יחידה 4)</p>
                 </div>
             </div>
 
+            <!-- בורר מצבי סטודיו (Studio Mode Bar) -->
+            <div class="studio-mode-bar" id="studio-mode-bar">
+                <button type="button" class="btn-studio-mode active" data-mode="all" title="הצג את כל מבני הנתונים הפעילים יחד (שאלות בגרות משולבות)">
+                    <span class="mode-icon">🌐</span>
+                    <span>הכל (משולב)</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="queue" title="מיקוד בתורים בלבד (Queue)">
+                    <span class="mode-icon">🔄</span>
+                    <span>תור (Queue)</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="stack" title="מיקוד במחסניות בלבד (Stack)">
+                    <span class="mode-icon">🥞</span>
+                    <span>מחסנית (Stack)</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="node" title="שרשרת חוליות (Node) - שלב 2">
+                    <span class="mode-icon">🔗</span>
+                    <span>חוליה (Node)</span>
+                </button>
+                <button type="button" class="btn-studio-mode" data-mode="binnode" title="עץ בינארי (BinNode) - שלב 3">
+                    <span class="mode-icon">🌳</span>
+                    <span>עץ בינארי (BinNode)</span>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -185,6 +208,18 @@
                                             <div class="format-card-syntax" dir="ltr">'a', 'b' או "word1", "word2"</div>
                                             <p class="format-card-desc">תווים יחידים בגרש <code>'c'</code> או מילים במירכאות <code>"text"</code>.</p>
                                             <div class="format-card-example" dir="ltr">'a', 'b', 'c', 'd'</div>
+                                            <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
+                                        </div>
+
+                                        <!-- כרטיס 5: מחסנית (Stack) -->
+                                        <div class="format-card" id="format-card-stack" data-type="Stack" onclick="applyQueueFormatSample('Stack')">
+                                            <div class="format-card-header">
+                                                <span class="format-badge format-badge-stack">מחסנית LIFO</span>
+                                                <span class="format-type-tag">Stack&lt;int&gt;</span>
+                                            </div>
+                                            <div class="format-card-syntax" dir="ltr">[Bottom] 10, 20, 30, 40 [Top]</div>
+                                            <p class="format-card-desc">האיבר השמאלי בתחתית והימני בראש המחסנית (Top).</p>
+                                            <div class="format-card-example" dir="ltr">10, 20, 30, 40</div>
                                             <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
                                         </div>
                                     </div>
@@ -322,6 +357,9 @@
                             <option value="class-point">📦 מחלקה מותאמת: Queue&lt;Point&gt; (בלשונית נפרדת)</option>
                             <option value="queue-of-queues">🔄 תור של תורים: Queue&lt;Queue&lt;int&gt;&gt;</option>
                             <option value="multi-params">👥 מספר תורים ומשתנים: Main(Queue&lt;int&gt; q, Queue&lt;int&gt; r, string tag)</option>
+                            <option value="stack-basic">🥞 מחסנית Stack: פעולות בסיסיות (Push, Pop, Top)</option>
+                            <option value="stack-reverse-queue">🔄🥞 משולב: היפוך תור באמצעות מחסנית</option>
+                            <option value="stack-brackets">🥞 בדיקת תקינות סוגריים: Stack&lt;char&gt;</option>
                         </select>
                         <span class="badge">C# בגרות</span>
                         <span class="badge" title="לחץ Ctrl+Space להשלמה אוטומטית בכל עת">Ctrl+Space להשלמה</span>
