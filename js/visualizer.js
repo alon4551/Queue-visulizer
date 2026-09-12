@@ -1888,7 +1888,7 @@ public class Program
                 this.switchStudioMode('node');
             }
         } else if (sampleType === 'BinNode') {
-            sampleVal = '10, 5, 15, 3, 7';
+            sampleVal = 'root: 50, L: 20, R: 70, LR: 30';
             targetCodePreset = 'binnode-basic';
             if (this.studioMode !== 'binnode') {
                 this.switchStudioMode('binnode');
@@ -2015,9 +2015,9 @@ public class Program
 
         binNodeInputs.forEach(input => {
             const name = input.dataset.paramName;
-            const randItems = [Math.floor(Math.random() * 50) + 1, Math.floor(Math.random() * 30) + 1, Math.floor(Math.random() * 50) + 31, Math.floor(Math.random() * 20) + 1, Math.floor(Math.random() * 20) + 21];
-            this.initialParams[name] = randItems;
-            input.value = randItems.join(', ');
+            const randPath = 'root: 50, L: 20, R: 70, LR: 30';
+            this.initialParams[name] = randPath;
+            input.value = randPath;
         });
 
         this.recompile();
@@ -2079,10 +2079,11 @@ public class Program
                     const parsed = this.parseQueueInput(input.value, nType);
                     this.initialParams[name] = parsed;
                 } else if (isBinNode) {
-                    const match = pType.match(/^BinNode<(.+)>$/);
-                    const bType = match ? match[1].trim() : 'int';
-                    const parsed = this.parseQueueInput(input.value, bType);
-                    this.initialParams[name] = parsed;
+                    const valStr = input.value.trim();
+                    if (!valStr) {
+                        throw new Error(`אנא הזן ערכים עבור עץ בינארי ${name}.`);
+                    }
+                    this.initialParams[name] = valStr;
                 } else {
                     let val = input.value.trim();
                     if (pType === 'int') {
@@ -2450,14 +2451,23 @@ public class Program
                     } else if (param.isBinNode || (param.type && param.type.startsWith('BinNode'))) {
                         const bType = param.itemType || param.binNodeItemType || 'int';
                         if (!this.initialParams[param.name]) {
-                            this.initialParams[param.name] = [10, 5, 15, 3, 7];
+                            this.initialParams[param.name] = 'root: 50, L: 20, R: 70, LR: 30';
                             typeChanged = true;
                         }
 
-                        let placeholder = '10, 5, 15, 3, 7';
-                        const formattedVal = Array.isArray(this.initialParams[param.name])
-                            ? this.initialParams[param.name].join(', ')
-                            : String(this.initialParams[param.name]);
+                        let placeholder = 'root: 50, L: 20, R: 70, LR: 30';
+                        let currentVal = this.initialParams[param.name];
+                        if (Array.isArray(currentVal)) {
+                            const bTree = (window.buildBinTree || (typeof buildBinTree !== 'undefined' ? buildBinTree : null));
+                            const cano = (window.treeToCanonicalString || (typeof treeToCanonicalString !== 'undefined' ? treeToCanonicalString : null));
+                            if (bTree && cano) {
+                                currentVal = cano(bTree(currentVal)) || currentVal.join(', ');
+                            } else {
+                                currentVal = currentVal.join(', ');
+                            }
+                            this.initialParams[param.name] = currentVal;
+                        }
+                        const formattedVal = String(currentVal || '');
 
                         card.innerHTML = `
                             <div class="param-init-header">
@@ -2465,15 +2475,312 @@ public class Program
                                 <span class="param-badge badge-binnode">עץ בינארי ${bType}</span>
                             </div>
                             <div class="param-init-row">
-                                <input type="text" class="input-text param-input" data-param-name="${param.name}" data-param-type="${param.type}" data-is-binnode="true" placeholder="${placeholder}" value="${formattedVal}" />
-                                <button type="button" class="btn btn-secondary btn-random-single-binnode" data-param-name="${param.name}" title="🎲 הגרל ערכים לעץ ${param.name}">🎲</button>
+                                <input type="text" class="input-text param-input binnode-text-input" data-param-name="${param.name}" data-param-type="${param.type}" data-is-binnode="true" placeholder="${placeholder}" value="${formattedVal}" />
+                                <button type="button" class="btn btn-secondary btn-random-single-binnode" data-param-name="${param.name}" title="🎲 הגרל עץ בינארי">🎲</button>
+                                <button type="button" class="btn btn-secondary btn-reset-binnode" data-param-name="${param.name}" title="🧹 אפס לשורש בלבד">🧹</button>
+                            </div>
+                            <!-- תבניות מבנה מוכנות (Tree Shape Presets) -->
+                            <div class="tree-presets-bar">
+                                <span class="tree-presets-label">תבניות מהירות:</span>
+                                <button type="button" class="btn-tree-preset" data-preset="balanced">🌲 מאוזן 3 רמות</button>
+                                <button type="button" class="btn-tree-preset" data-preset="bst">🔍 עץ חיפוש (BST)</button>
+                                <button type="button" class="btn-tree-preset" data-preset="left-skewed">↙️ מוטה שמאלה</button>
+                                <button type="button" class="btn-tree-preset" data-preset="right-skewed">↘️ מוטה ימינה</button>
+                                <button type="button" class="btn-tree-preset" data-preset="root-only">🌱 שורש בלבד</button>
+                            </div>
+                            <!-- בונה עצים ויזואלי אינטראקטיבי -->
+                            <div class="binnode-visual-builder">
+                                <div class="binnode-builder-title">
+                                    <span>🌿 עורך עץ אינטראקטיבי — הוספת צמתים בכל רמה ונתיב (ללא תלות בסדר)</span>
+                                </div>
+                                <div class="tree-quick-adder">
+                                    <div class="adder-field">
+                                        <label>צומת אב / נתיב:</label>
+                                        <select class="select-adder-parent"></select>
+                                    </div>
+                                    <div class="adder-field custom-path-field" style="display: none;">
+                                        <label>נתיב חופשי (למשל RLL):</label>
+                                        <input type="text" class="input-custom-path" placeholder="למשל RLL או ששי" />
+                                    </div>
+                                    <div class="adder-field">
+                                        <label>כיוון בן:</label>
+                                        <select class="select-adder-dir">
+                                            <option value="L">שמאלי (Left - ש)</option>
+                                            <option value="R">ימני (Right - י)</option>
+                                        </select>
+                                    </div>
+                                    <div class="adder-field">
+                                        <label>ערך הצומת:</label>
+                                        <input type="text" class="input-text input-adder-val" placeholder="ערך" value="35" />
+                                    </div>
+                                    <button type="button" class="btn btn-primary btn-add-node-action">➕ הוסף צומת ברמה זו</button>
+                                </div>
+                                <!-- תצוגת רמות העץ החזותית -->
+                                <div class="tree-levels-view"></div>
                             </div>
                             <p class="param-init-hint">
-                                סדר קלט: <strong>סדר רמות (Level-Order)</strong>: שורש העץ ראשון, ולאחריו בנים שמאלי וימני. מועבר כפרמטר <code>${param.name}</code> לפעולה Main.
+                                סדר קלט: <strong>גמיש לחלוטין וללא תלות בסדר!</strong> תומך בנתיבים (<code>root: 50, L: 20, R: 70, LR: 30</code> או בעברית: <code>שורש: 50, ש: 20, י: 70, שי: 30</code>), יחסי אב-בנים (<code>50: 20, 70</code>) או סדר רמות.
                             </p>
                         `;
 
                         const inputEl = card.querySelector('.param-input');
+                        const parentSelect = card.querySelector('.select-adder-parent');
+                        const customPathField = card.querySelector('.custom-path-field');
+                        const customPathInput = card.querySelector('.input-custom-path');
+                        const dirSelect = card.querySelector('.select-adder-dir');
+                        const valInput = card.querySelector('.input-adder-val');
+                        const addBtn = card.querySelector('.btn-add-node-action');
+                        const levelsView = card.querySelector('.tree-levels-view');
+                        const randBtn = card.querySelector('.btn-random-single-binnode');
+                        const resetBtn = card.querySelector('.btn-reset-binnode');
+                        const presetBtns = card.querySelectorAll('.btn-tree-preset');
+
+                        const buildTreeFn = window.buildBinTree || (typeof buildBinTree !== 'undefined' ? buildBinTree : null);
+                        const levelsFn = window.treeToLevels || (typeof treeToLevels !== 'undefined' ? treeToLevels : null);
+                        const pathMapFn = window.treeToPathMap || (typeof treeToPathMap !== 'undefined' ? treeToPathMap : null);
+                        const canonicalFn = window.treeToCanonicalString || (typeof treeToCanonicalString !== 'undefined' ? treeToCanonicalString : null);
+                        const setNodeFn = window.setNodeAtPath || (typeof setNodeAtPath !== 'undefined' ? setNodeAtPath : null);
+                        const removeNodeFn = window.removeNodeAtPath || (typeof removeNodeAtPath !== 'undefined' ? removeNodeAtPath : null);
+
+                        const refreshVisualTree = () => {
+                            if (!buildTreeFn) return;
+                            const currentTree = buildTreeFn(inputEl.value);
+                            const pathMap = pathMapFn ? pathMapFn(currentTree) : {};
+                            const levels = levelsFn ? levelsFn(currentTree) : [];
+
+                            // 1. Populate parent dropdown
+                            if (parentSelect) {
+                                parentSelect.innerHTML = '';
+                                const paths = Object.keys(pathMap).sort((a, b) => a.length - b.length || a.localeCompare(b));
+                                if (paths.length === 0) {
+                                    const opt = document.createElement('option');
+                                    opt.value = '';
+                                    opt.textContent = 'שורש חדש (Root)';
+                                    parentSelect.appendChild(opt);
+                                } else {
+                                    paths.forEach(p => {
+                                        const opt = document.createElement('option');
+                                        opt.value = p;
+                                        const label = (p === '') ? `שורש (root - ערך: ${pathMap[p]})` : `נתיב ${p} (ערך: ${pathMap[p]})`;
+                                        opt.textContent = label;
+                                        parentSelect.appendChild(opt);
+                                    });
+                                }
+                                const customOpt = document.createElement('option');
+                                customOpt.value = '__custom__';
+                                customOpt.textContent = '✏️ נתיב מותאם אישית...';
+                                parentSelect.appendChild(customOpt);
+                            }
+
+                            // 2. Render levels
+                            if (levelsView) {
+                                levelsView.innerHTML = '';
+                                if (!currentTree || levels.length === 0) {
+                                    levelsView.innerHTML = '<div class="tree-empty-notice">העץ ריק כעת. הוסף צומת שורש או בחר תבנית מוכנה מלמעלה.</div>';
+                                    return;
+                                }
+
+                                levels.forEach((lvlNodes, lvlIdx) => {
+                                    const group = document.createElement('div');
+                                    group.className = 'tree-level-group';
+
+                                    const hdr = document.createElement('div');
+                                    hdr.className = 'tree-level-header';
+                                    hdr.textContent = `רמה ${lvlIdx} ${lvlIdx === 0 ? '(שורש העץ - Root)' : `(${lvlNodes.length} צמתים)`}`;
+                                    group.appendChild(hdr);
+
+                                    const nodesCont = document.createElement('div');
+                                    nodesCont.className = 'tree-level-nodes';
+
+                                    lvlNodes.forEach(nodeInfo => {
+                                        const nodeItem = document.createElement('div');
+                                        nodeItem.className = 'tree-node-item';
+
+                                        const pathBadge = document.createElement('span');
+                                        pathBadge.className = 'tree-node-path';
+                                        pathBadge.textContent = nodeInfo.path === '' ? 'root' : nodeInfo.path;
+                                        pathBadge.title = nodeInfo.path === '' ? 'שורש העץ' : `נתיב: ${nodeInfo.path}`;
+
+                                        const valField = document.createElement('input');
+                                        valField.type = 'text';
+                                        valField.className = 'tree-node-val-input';
+                                        valField.value = nodeInfo.value;
+                                        valField.title = 'לחץ לעריכת הערך';
+                                        valField.addEventListener('change', () => {
+                                            if (setNodeFn) {
+                                                const updated = setNodeFn(currentTree, nodeInfo.path, valField.value);
+                                                if (canonicalFn) inputEl.value = canonicalFn(updated);
+                                                this.initialParams[param.name] = inputEl.value;
+                                                this.recompile();
+                                                refreshVisualTree();
+                                            }
+                                        });
+
+                                        const actionsCont = document.createElement('div');
+                                        actionsCont.className = 'tree-node-actions';
+
+                                        if (!nodeInfo.hasLeft) {
+                                            const addLBtn = document.createElement('button');
+                                            addLBtn.type = 'button';
+                                            addLBtn.className = 'btn-tree-action btn-add-l';
+                                            addLBtn.textContent = '+ש';
+                                            addLBtn.title = `הוסף בן שמאלי לנתיב ${nodeInfo.path || 'root'}`;
+                                            addLBtn.addEventListener('click', () => {
+                                                if (setNodeFn) {
+                                                    const childPath = nodeInfo.path + 'L';
+                                                    const autoVal = Math.max(1, Math.floor(Number(nodeInfo.value) * 0.7) || 10);
+                                                    const updated = setNodeFn(currentTree, childPath, autoVal);
+                                                    if (canonicalFn) inputEl.value = canonicalFn(updated);
+                                                    this.initialParams[param.name] = inputEl.value;
+                                                    this.recompile();
+                                                    refreshVisualTree();
+                                                }
+                                            });
+                                            actionsCont.appendChild(addLBtn);
+                                        }
+
+                                        if (!nodeInfo.hasRight) {
+                                            const addRBtn = document.createElement('button');
+                                            addRBtn.type = 'button';
+                                            addRBtn.className = 'btn-tree-action btn-add-r';
+                                            addRBtn.textContent = '+י';
+                                            addRBtn.title = `הוסף בן ימני לנתיב ${nodeInfo.path || 'root'}`;
+                                            addRBtn.addEventListener('click', () => {
+                                                if (setNodeFn) {
+                                                    const childPath = nodeInfo.path + 'R';
+                                                    const autoVal = (Number(nodeInfo.value) || 10) + 15;
+                                                    const updated = setNodeFn(currentTree, childPath, autoVal);
+                                                    if (canonicalFn) inputEl.value = canonicalFn(updated);
+                                                    this.initialParams[param.name] = inputEl.value;
+                                                    this.recompile();
+                                                    refreshVisualTree();
+                                                }
+                                            });
+                                            actionsCont.appendChild(addRBtn);
+                                        }
+
+                                        const delBtn = document.createElement('button');
+                                        delBtn.type = 'button';
+                                        delBtn.className = 'btn-tree-action btn-del';
+                                        delBtn.textContent = '✕';
+                                        delBtn.title = nodeInfo.path === '' ? 'אפס עץ' : `מחק צומת ${nodeInfo.path} ותת-העץ תחתיו`;
+                                        delBtn.addEventListener('click', () => {
+                                            if (removeNodeFn) {
+                                                const updated = removeNodeFn(currentTree, nodeInfo.path);
+                                                if (canonicalFn) {
+                                                    inputEl.value = updated ? canonicalFn(updated) : 'root: 10';
+                                                }
+                                                this.initialParams[param.name] = inputEl.value;
+                                                this.recompile();
+                                                refreshVisualTree();
+                                            }
+                                        });
+                                        actionsCont.appendChild(delBtn);
+
+                                        nodeItem.appendChild(pathBadge);
+                                        nodeItem.appendChild(valField);
+                                        nodeItem.appendChild(actionsCont);
+                                        nodesCont.appendChild(nodeItem);
+                                    });
+
+                                    group.appendChild(nodesCont);
+                                    levelsView.appendChild(group);
+                                });
+                            }
+                        };
+
+                        if (parentSelect) {
+                            parentSelect.addEventListener('change', () => {
+                                if (parentSelect.value === '__custom__') {
+                                    if (customPathField) customPathField.style.display = 'flex';
+                                    if (dirSelect) dirSelect.parentElement.style.display = 'none';
+                                } else {
+                                    if (customPathField) customPathField.style.display = 'none';
+                                    if (dirSelect) dirSelect.parentElement.style.display = 'flex';
+                                }
+                            });
+                        }
+
+                        if (addBtn) {
+                            addBtn.addEventListener('click', () => {
+                                let targetPath = '';
+                                if (parentSelect.value === '__custom__') {
+                                    targetPath = (customPathInput ? customPathInput.value : '').trim();
+                                } else {
+                                    const parentP = parentSelect.value;
+                                    const dir = dirSelect ? dirSelect.value : 'L';
+                                    targetPath = parentP + dir;
+                                }
+                                const val = (valInput ? valInput.value : '35').trim();
+                                if (!targetPath && parentSelect.value !== '') return;
+
+                                const currentTree = buildTreeFn ? buildTreeFn(inputEl.value) : null;
+                                if (setNodeFn) {
+                                    const updated = setNodeFn(currentTree, targetPath, val);
+                                    if (canonicalFn) inputEl.value = canonicalFn(updated);
+                                    this.initialParams[param.name] = inputEl.value;
+                                    this.recompile();
+                                    refreshVisualTree();
+                                }
+                            });
+                        }
+
+                        presetBtns.forEach(pBtn => {
+                            pBtn.addEventListener('click', () => {
+                                const kind = pBtn.dataset.preset;
+                                let str = 'root: 50, L: 20, R: 70, LR: 30';
+                                if (kind === 'balanced') {
+                                    str = 'root: 50, L: 20, R: 70, LL: 10, LR: 30, RL: 60, RR: 80';
+                                } else if (kind === 'bst') {
+                                    str = 'root: 50, L: 25, R: 75, LL: 15, LR: 35, RR: 90';
+                                } else if (kind === 'left-skewed') {
+                                    str = 'root: 10, L: 8, LL: 5, LLL: 2';
+                                } else if (kind === 'right-skewed') {
+                                    str = 'root: 10, R: 20, RR: 30, RRR: 40';
+                                } else if (kind === 'root-only') {
+                                    str = 'root: 50';
+                                }
+                                inputEl.value = str;
+                                this.initialParams[param.name] = str;
+                                this.recompile();
+                                refreshVisualTree();
+                            });
+                        });
+
+                        if (randBtn) {
+                            randBtn.addEventListener('click', () => {
+                                const r0 = Math.floor(Math.random() * 50) + 1;
+                                const r1 = Math.floor(Math.random() * 30) + 1;
+                                const r2 = Math.floor(Math.random() * 50) + 31;
+                                const r3 = Math.floor(Math.random() * 20) + 1;
+                                const r4 = Math.floor(Math.random() * 20) + 21;
+                                const str = `root: ${r0}, L: ${r1}, R: ${r2}, LL: ${r3}, LR: ${r4}`;
+                                inputEl.value = str;
+                                this.initialParams[param.name] = str;
+                                this.recompile();
+                                refreshVisualTree();
+                            });
+                        }
+
+                        if (resetBtn) {
+                            resetBtn.addEventListener('click', () => {
+                                inputEl.value = 'root: 50';
+                                this.initialParams[param.name] = 'root: 50';
+                                this.recompile();
+                                refreshVisualTree();
+                            });
+                        }
+
+                        inputEl.addEventListener('input', () => {
+                            refreshVisualTree();
+                        });
+
+                        inputEl.addEventListener('change', () => {
+                            this.initialParams[param.name] = inputEl.value.trim();
+                            this.recompile();
+                            refreshVisualTree();
+                        });
+
                         inputEl.addEventListener('keydown', (e) => {
                             if (e.key === 'Enter') {
                                 this.updateQueueFromInput();
@@ -2481,16 +2788,8 @@ public class Program
                             }
                         });
 
-                        const singleRandBtn = card.querySelector('.btn-random-single-binnode');
-                        if (singleRandBtn) {
-                            singleRandBtn.addEventListener('click', () => {
-                                const newItems = [Math.floor(Math.random() * 50) + 1, Math.floor(Math.random() * 30) + 1, Math.floor(Math.random() * 50) + 31, Math.floor(Math.random() * 20) + 1, Math.floor(Math.random() * 20) + 21];
-                                this.initialParams[param.name] = newItems;
-                                inputEl.value = newItems.join(', ');
-                                this.recompile();
-                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
-                            });
-                        }
+                        // Initial render of visual tree
+                        refreshVisualTree();
                     } else {
                         // Primitive variable
                         const pType = param.type || 'int';

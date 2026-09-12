@@ -1160,17 +1160,344 @@ class BinNodeInstance {
     ToString() { return String(this.value); }
 }
 
-function buildBinTree(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return null;
-    const nodes = arr.map(v => (v !== null && v !== undefined) ? new BinNodeInstance(v) : null);
-    for (let i = 0; i < nodes.length; i++) {
-        if (!nodes[i]) continue;
-        const leftIdx = 2 * i + 1;
-        const rightIdx = 2 * i + 2;
-        if (leftIdx < nodes.length) nodes[i].left = nodes[leftIdx];
-        if (rightIdx < nodes.length) nodes[i].right = nodes[rightIdx];
+function normalizeBinTreePath(rawPath) {
+    if (!rawPath) return '';
+    let p = String(rawPath).trim().toUpperCase();
+    if (p === 'ROOT' || p === 'שורש') return '';
+    p = p.replace(/ש/g, 'L').replace(/י/g, 'R');
+    return p.replace(/[^LR]/g, '');
+}
+
+function parseBinNodeVal(v) {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    if (s === '' || s === '-' || s === 'null' || s === 'None' || s === 'ריק' || s === 'אין') return null;
+    const num = Number(s);
+    if (!isNaN(num) && s !== '') return Math.trunc(num);
+    if ((s.startsWith("'") && s.endsWith("'")) || (s.startsWith('"') && s.endsWith('"'))) {
+        return s.slice(1, -1);
     }
-    return nodes[0];
+    return s;
+}
+
+function parseBinTreeInput(input) {
+    if (input === null || input === undefined) return null;
+    if (input instanceof BinNodeInstance) return input;
+
+    // If already structured object with left/right or value
+    if (typeof input === 'object' && !Array.isArray(input)) {
+        if ('value' in input || 'val' in input) {
+            const val = input.value !== undefined ? input.value : input.val;
+            return new BinNodeInstance(val, parseBinTreeInput(input.left), parseBinTreeInput(input.right));
+        }
+        // Path dictionary: { 'root': 10, 'L': 5, 'R': 20, 'LR': 8 }
+        return buildFromPathMap(input);
+    }
+
+    let str = '';
+    if (Array.isArray(input)) {
+        // If array of path strings: ['root: 10', 'L: 5']
+        if (input.length > 0 && typeof input[0] === 'string' && (input[0].includes(':') || input[0].includes('='))) {
+            str = input.join(', ');
+        } else {
+            // Standard array: [10, 5, 20, null, 8]
+            return buildFromLevelArray(input);
+        }
+    } else {
+        str = String(input).trim();
+    }
+
+    if (!str) return null;
+
+    // Check if contains path syntax: 'root:', 'L:', 'R:', 'ש:', 'י:', 'שורש:' or '='
+    const hasPathSyntax = /(?:^|[\s,;])(root|שורש|[LRשילר]+)\s*[:=]/iu.test(str);
+    if (hasPathSyntax) {
+        return buildFromPathString(str);
+    }
+
+    // Check if contains edge syntax: '10: 5, 20' or '10 -> 5, 20'
+    const hasEdgeSyntax = /(-?\d+|'[^']+'|"[^"]+")\s*(?:->|:)\s*(-?\d+|null|-|'[^']+'|"[^"]+")/i.test(str);
+    if (hasEdgeSyntax && (str.includes(';') || str.includes('\n') || str.includes('->') || (str.match(/:/g) || []).length > 1)) {
+        return buildFromEdgeString(str);
+    }
+
+    // Check if contains nested parentheses: '10(5, 20)' or '10(5(3, 7), 20)'
+    if (/^[^()]+\(.*\)$/.test(str)) {
+        return buildFromParenthesesString(str);
+    }
+
+    // Otherwise fallback to comma-separated list (level-order BFS)
+    const items = str.split(',').map(s => s.trim());
+    return buildFromLevelArray(items);
+}
+
+function buildBinTree(input) {
+    return parseBinTreeInput(input);
+}
+
+function buildFromPathString(str) {
+    const map = {};
+    const tokens = str.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+    let rootValueExplicit = null;
+
+    tokens.forEach((tok, idx) => {
+        const m = tok.match(/^([a-zA-Z\u0590-\u05FF]+)\s*[:=]\s*(.+)$/u);
+        if (m) {
+            const p = normalizeBinTreePath(m[1]);
+            const v = parseBinNodeVal(m[2]);
+            if (p === '') rootValueExplicit = v;
+            map[p] = v;
+        } else {
+            const val = parseBinNodeVal(tok);
+            if (idx === 0 && val !== null && !tok.includes(':')) {
+                map[''] = val;
+                rootValueExplicit = val;
+            }
+        }
+    });
+
+    return buildFromPathMap(map, rootValueExplicit);
+}
+
+function buildFromPathMap(map, fallbackRootVal = 0) {
+    const paths = Object.keys(map).sort((a, b) => a.length - b.length);
+    if (paths.length === 0) return null;
+
+    const rootVal = map[''] !== undefined ? map[''] : (fallbackRootVal !== null ? fallbackRootVal : map[paths[0]]);
+    const root = new BinNodeInstance(rootVal);
+
+    paths.forEach(p => {
+        if (p === '') return;
+        const val = map[p];
+        if (val === null) return;
+
+        let curr = root;
+        for (let i = 0; i < p.length; i++) {
+            const dir = p[i];
+            const isLast = (i === p.length - 1);
+            if (dir === 'L') {
+                if (isLast) {
+                    curr.left = new BinNodeInstance(val);
+                } else {
+                    if (!curr.left) curr.left = new BinNodeInstance(0);
+                    curr = curr.left;
+                }
+            } else if (dir === 'R') {
+                if (isLast) {
+                    curr.right = new BinNodeInstance(val);
+                } else {
+                    if (!curr.right) curr.right = new BinNodeInstance(0);
+                    curr = curr.right;
+                }
+            }
+        }
+    });
+
+    return root;
+}
+
+function buildFromEdgeString(str) {
+    const segments = str.split(/[;\n]+/).map(s => s.trim()).filter(Boolean);
+    const nodeMap = new Map();
+    const hasParent = new Set();
+    const relations = [];
+
+    const getNode = (val) => {
+        if (!nodeMap.has(val)) {
+            nodeMap.set(val, new BinNodeInstance(val));
+        }
+        return nodeMap.get(val);
+    };
+
+    segments.forEach(seg => {
+        const m = seg.match(/^([^:->]+)\s*(?:->|:)\s*(.*)$/);
+        if (m) {
+            const pVal = parseBinNodeVal(m[1]);
+            const childrenStr = m[2].replace(/[()]/g, '').trim();
+            const childParts = childrenStr.split(',').map(s => parseBinNodeVal(s.trim()));
+            const leftVal = childParts[0] !== undefined ? childParts[0] : null;
+            const rightVal = childParts[1] !== undefined ? childParts[1] : null;
+            relations.push({ parent: pVal, left: leftVal, right: rightVal });
+            if (leftVal !== null) hasParent.add(leftVal);
+            if (rightVal !== null) hasParent.add(rightVal);
+        }
+    });
+
+    if (relations.length === 0) return null;
+
+    relations.forEach(r => {
+        const pNode = getNode(r.parent);
+        if (r.left !== null) pNode.left = getNode(r.left);
+        if (r.right !== null) pNode.right = getNode(r.right);
+    });
+
+    const rootRel = relations.find(r => !hasParent.has(r.parent)) || relations[0];
+    return getNode(rootRel.parent);
+}
+
+function buildFromParenthesesString(str) {
+    let i = 0;
+    function parseNode() {
+        while (i < str.length && (str[i] === ' ' || str[i] === ',')) i++;
+        if (i >= str.length) return null;
+        if (str[i] === '-' || str.substr(i, 4) === 'null') {
+            if (str[i] === '-') i++; else i += 4;
+            return null;
+        }
+
+        let valStr = '';
+        while (i < str.length && str[i] !== '(' && str[i] !== ')' && str[i] !== ',') {
+            valStr += str[i++];
+        }
+        valStr = valStr.trim();
+        if (!valStr) return null;
+
+        const val = parseBinNodeVal(valStr);
+        const node = new BinNodeInstance(val);
+
+        if (i < str.length && str[i] === '(') {
+            i++;
+            node.left = parseNode();
+            while (i < str.length && (str[i] === ' ' || str[i] === ',')) i++;
+            if (i < str.length && str[i] !== ')') {
+                node.right = parseNode();
+            }
+            while (i < str.length && str[i] !== ')') i++;
+            if (i < str.length && str[i] === ')') i++;
+        }
+        return node;
+    }
+    return parseNode();
+}
+
+function buildFromLevelArray(items) {
+    if (!items || items.length === 0) return null;
+    const parsed = items.map(it => parseBinNodeVal(it));
+    if (parsed.length === 0 || parsed[0] === null) return null;
+
+    const root = new BinNodeInstance(parsed[0]);
+    const queue = [root];
+    let i = 1;
+
+    while (queue.length > 0 && i < parsed.length) {
+        const curr = queue.shift();
+        if (!curr) continue;
+
+        if (i < parsed.length) {
+            const leftVal = parsed[i++];
+            if (leftVal !== null) {
+                curr.left = new BinNodeInstance(leftVal);
+                queue.push(curr.left);
+            }
+        }
+
+        if (i < parsed.length) {
+            const rightVal = parsed[i++];
+            if (rightVal !== null) {
+                curr.right = new BinNodeInstance(rightVal);
+                queue.push(curr.right);
+            }
+        }
+    }
+    return root;
+}
+
+function treeToPathMap(root) {
+    const map = {};
+    if (!root) return map;
+    function traverse(node, path) {
+        if (!node) return;
+        map[path] = node.value;
+        if (node.left) traverse(node.left, path + 'L');
+        if (node.right) traverse(node.right, path + 'R');
+    }
+    traverse(root, '');
+    return map;
+}
+
+function treeToCanonicalString(root) {
+    if (!root) return '';
+    const map = treeToPathMap(root);
+    const keys = Object.keys(map).sort((a, b) => {
+        if (a.length !== b.length) return a.length - b.length;
+        return a.localeCompare(b);
+    });
+    if (keys.length === 0) return '';
+    return keys.map(k => (k === '' ? `root: ${map[k]}` : `${k}: ${map[k]}`)).join(', ');
+}
+
+function treeToLevels(root) {
+    if (!root) return [];
+    const levels = [];
+    const queue = [{ node: root, path: '', level: 0 }];
+    while (queue.length > 0) {
+        const item = queue.shift();
+        if (!levels[item.level]) levels[item.level] = [];
+        levels[item.level].push({
+            path: item.path,
+            value: item.node.value,
+            hasLeft: item.node.left !== null,
+            hasRight: item.node.right !== null,
+            leftValue: item.node.left ? item.node.left.value : null,
+            rightValue: item.node.right ? item.node.right.value : null
+        });
+        if (item.node.left) queue.push({ node: item.node.left, path: item.path + 'L', level: item.level + 1 });
+        if (item.node.right) queue.push({ node: item.node.right, path: item.path + 'R', level: item.level + 1 });
+    }
+    return levels;
+}
+
+function setNodeAtPath(root, path, val) {
+    const cleanVal = parseBinNodeVal(val);
+    if (!root) {
+        return cleanVal !== null ? new BinNodeInstance(cleanVal) : null;
+    }
+    const cleanPath = normalizeBinTreePath(path);
+    if (cleanPath === '') {
+        if (cleanVal !== null) root.value = cleanVal;
+        return root;
+    }
+    let curr = root;
+    for (let i = 0; i < cleanPath.length; i++) {
+        const dir = cleanPath[i];
+        const isLast = (i === cleanPath.length - 1);
+        if (dir === 'L') {
+            if (isLast) {
+                if (cleanVal === null) curr.left = null;
+                else if (curr.left) curr.left.value = cleanVal;
+                else curr.left = new BinNodeInstance(cleanVal);
+            } else {
+                if (!curr.left) curr.left = new BinNodeInstance(0);
+                curr = curr.left;
+            }
+        } else if (dir === 'R') {
+            if (isLast) {
+                if (cleanVal === null) curr.right = null;
+                else if (curr.right) curr.right.value = cleanVal;
+                else curr.right = new BinNodeInstance(cleanVal);
+            } else {
+                if (!curr.right) curr.right = new BinNodeInstance(0);
+                curr = curr.right;
+            }
+        }
+    }
+    return root;
+}
+
+function removeNodeAtPath(root, path) {
+    if (!root) return null;
+    const cleanPath = normalizeBinTreePath(path);
+    if (cleanPath === '') return null;
+    let curr = root;
+    for (let i = 0; i < cleanPath.length - 1; i++) {
+        const dir = cleanPath[i];
+        curr = (dir === 'L') ? curr.left : curr.right;
+        if (!curr) return root;
+    }
+    const lastDir = cleanPath[cleanPath.length - 1];
+    if (lastDir === 'L') curr.left = null;
+    else if (lastDir === 'R') curr.right = null;
+    return root;
 }
 
 /**
@@ -1303,7 +1630,7 @@ class RuntimeEnvironment {
                     const chainInst = buildNodeChain(Array.isArray(rawVal) ? rawVal : (rawVal !== undefined && rawVal !== null ? [rawVal] : [12, 5, 8, 20]));
                     initialArgs.push(chainInst);
                 } else if (param.type.startsWith('BinNode')) {
-                    const treeInst = buildBinTree(Array.isArray(rawVal) ? rawVal : (rawVal !== undefined && rawVal !== null ? [rawVal] : [10, 5, 15, 3, 7]));
+                    const treeInst = buildBinTree(rawVal !== undefined && rawVal !== null ? rawVal : [10, 5, 15, 3, 7]);
                     initialArgs.push(treeInst);
                 } else {
                     const parsedVal = this.parsePrimitiveParamValue(rawVal, param.type, param.name);
@@ -2489,6 +2816,7 @@ class RuntimeEnvironment {
                     } else if (methodName === 'IsEmpty') {
                         const isEmpty = obj.isEmpty();
                         this.recordFrame(expr.line, `פעולת ${obj.name}.IsEmpty(): בדיקת ריקנות -> ${isEmpty ? 'אמת (true)' : 'שקר (false)'}`, 'idle', false, null, null, null, obj.name);
+                        return isEmpty;
                     } else {
                         throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' במחסנית (לפי תקן משרד החינוך הפעולות הן: Push, Pop, Top, IsEmpty)` };
                     }
@@ -2720,6 +3048,9 @@ class RuntimeEnvironment {
         if (val instanceof StackInstance) {
             return `Stack [${val.items.map(it => this.formatVal(it)).join(', ')}]`;
         }
+        if (val instanceof BinNodeInstance) {
+            return `BinNode(${val.value})`;
+        }
         if (val instanceof ClassInstance) {
             if (val.methods && val.methods.has('ToString')) {
                 try {
@@ -2767,7 +3098,29 @@ if (typeof window !== 'undefined') {
     window.NodeInstance = NodeInstance;
     window.BinNodeInstance = BinNodeInstance;
     window.ClassInstance = ClassInstance;
+    window.buildBinTree = buildBinTree;
+    window.parseBinTreeInput = parseBinTreeInput;
+    window.treeToPathMap = treeToPathMap;
+    window.treeToCanonicalString = treeToCanonicalString;
+    window.treeToLevels = treeToLevels;
+    window.setNodeAtPath = setNodeAtPath;
+    window.removeNodeAtPath = removeNodeAtPath;
 }
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { CSharpQueueInterpreter, QueueInstance, StackInstance, NodeInstance, BinNodeInstance, ClassInstance, RuntimeEnvironment };
+    module.exports = {
+        CSharpQueueInterpreter,
+        QueueInstance,
+        StackInstance,
+        NodeInstance,
+        BinNodeInstance,
+        ClassInstance,
+        RuntimeEnvironment,
+        buildBinTree,
+        parseBinTreeInput,
+        treeToPathMap,
+        treeToCanonicalString,
+        treeToLevels,
+        setNodeAtPath,
+        removeNodeAtPath
+    };
 }

@@ -241,9 +241,9 @@
                                                 <span class="format-badge format-badge-binnode">עץ בינארי</span>
                                                 <span class="format-type-tag">BinNode&lt;int&gt;</span>
                                             </div>
-                                            <div class="format-card-syntax" dir="ltr">10, 5, 15, 3, 7 (Level-Order)</div>
-                                            <p class="format-card-desc">צומתי עץ בינארי בסדר רמות (סריקה לרוחב): שורש (Root), בן שמאלי ובן ימני.</p>
-                                            <div class="format-card-example" dir="ltr">10, 5, 15, 3, 7</div>
+                                            <div class="format-card-syntax" dir="ltr">root: 50, L: 20, R: 70, LR: 30</div>
+                                            <p class="format-card-desc">הגדרה חופשית בכל סדר ורמה (נתיבים L/R או עברית ש/י), יחסי אב-בנים (50: 20, 70) או סדר רמות.</p>
+                                            <div class="format-card-example" dir="ltr">root: 50, L: 20, R: 70, LR: 30</div>
                                             <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
                                         </div>
                                     </div>
@@ -290,11 +290,21 @@
                                             </p>
                                         </div>
                                         <div class="guide-detail-item">
-                                            <strong>🌳 כיצד פועל עץ בינארי (<code>BinNode&lt;T&gt;</code>) — מבנה נתונים היררכי</strong>
+                                            <strong>🌳 כיצד פועל עץ בינארי (<code>BinNode&lt;T&gt;</code>) — אתחול גמיש בכל סדר ורמות, מבנה רקורסיבי ותקן בגרות</strong>
                                             <p>
                                                 עץ בינארי הוא מבנה נתונים היררכי רקורסיבי. הצומת הראשי נקרא <strong>שורש (Root)</strong>, ולכל צומת יש לכל היותר שני בנים: תת-עץ שמאלי (<code>left</code>) ותת-עץ ימני (<code>right</code>). צומת ללא בנים נקרא <strong>עלה (Leaf)</strong>.
                                                 <br>
-                                                • <strong>סדר האתחול בקלט</strong>: סדר רמות (Level-Order) — השורש ראשון, ולאחריו בניו ברמה 1 משמאל לימין, וכן הלאה (לדוגמה: ב-<code>10, 5, 15, 3, 7</code> השורש הוא <code>10</code>, ילדו השמאלי <code>5</code>, ילדו הימני <code>15</code>, וילדי <code>5</code> הם <code>3</code> ו-<code>7</code>).
+                                                • <strong>חופש מוחלט באתחול וסדר הקלט</strong>: ניתן להגדיר צמתים בכל רמה ובכל סדר שתרצו!
+                                                <br>
+                                                - <strong>תחביר נתיבים (Path Notation) — ללא תלות בסדר</strong>: <code>root: 50, L: 20, R: 70, LL: 10, LR: 30, RLL: 65</code> (או בעברית: <code>שורש: 50, ש: 20, י: 70, שי: 30</code>). אפשר לכתוב את הצמתים בכל סדר (למשל <code>R</code> לפני <code>L</code>), וצומתי ביניים נוצרים אוטומטית!
+                                                <br>
+                                                - <strong>תחביר יחסי אב-בנים (Edges)</strong>: <code>50: (20, 70); 20: (10, 30)</code>.
+                                                <br>
+                                                - <strong>תחביר סוגריים מקוננים</strong>: <code>50(20(10, 30), 70)</code>.
+                                                <br>
+                                                - <strong>סדר רמות קלאסי (Level-Order BFS)</strong>: <code>50, 20, 70, 10, 30</code>.
+                                                <br>
+                                                - <strong>בונה עצים ויזואלי אינטראקטיבי</strong>: בחלונית האתחול שלמטה תוכלו ללחוץ על <code>[+ש]</code> ו-<code>[+י]</code> בכל צומת, להוסיף צמתים חופשית לכל רמה, ולבחור תבניות מוכנות (עץ מאוזן, BST, עץ מוטה)!
                                                 <br>
                                                 • <strong>פעולות מורשות בבגרות במחלקה <code>BinNode&lt;T&gt;</code></strong>:
                                                 <code>GetValue()</code> (ערך הצומת), <code>SetValue(x)</code> (עדכון ערך), <code>GetLeft()</code> / <code>GetRight()</code> (הפניה לבנים), <code>SetLeft(t)</code> / <code>SetRight(t)</code> (חיבור בנים), <code>HasLeft()</code> / <code>HasRight()</code> (בדיקת קיום בנים), ו-<code>IsLeaf()</code> (בדיקת עלה: <code>!HasLeft() &amp;&amp; !HasRight()</code>).

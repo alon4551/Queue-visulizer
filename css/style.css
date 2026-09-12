@@ -1229,6 +1229,12 @@ body {
     color: #15803d;
 }
 
+.param-badge.badge-binnode {
+    background: #ccfbf1;
+    color: #0f766e;
+    border: 1px solid #99f6e4;
+}
+
 .param-init-row {
     display: flex;
     align-items: center;
@@ -1248,6 +1254,242 @@ body {
     color: #64748b;
     margin: 0;
 }
+
+/* בונה עצים אינטראקטיבי עבור BinNode */
+.tree-presets-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin-top: 0.2rem;
+    margin-bottom: 0.2rem;
+}
+
+.tree-presets-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    margin-left: 0.25rem;
+}
+
+.btn-tree-preset {
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.btn-tree-preset:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+.binnode-visual-builder {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin-top: 0.25rem;
+}
+
+.binnode-builder-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0f766e;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.tree-quick-adder {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    background: #ffffff;
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.tree-quick-adder .adder-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.tree-quick-adder select,
+.tree-quick-adder input {
+    padding: 0.25rem 0.45rem;
+    font-size: 0.8rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #ffffff;
+    min-width: 100px;
+}
+
+.tree-quick-adder .btn-add-node-action {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    background: #0d9488;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.tree-quick-adder .btn-add-node-action:hover {
+    background: #0f766e;
+}
+
+.tree-levels-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: 240px;
+    overflow-y: auto;
+    padding-left: 0.2rem;
+}
+
+.tree-level-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+}
+
+.tree-level-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 0.2rem;
+}
+
+.tree-level-nodes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.tree-node-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 0.25rem 0.45rem;
+    font-size: 0.8rem;
+}
+
+.tree-node-path {
+    font-family: 'Consolas', monospace;
+    direction: ltr;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #1d4ed8;
+    background: #dbeafe;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+}
+
+.tree-node-val-input {
+    width: 46px;
+    padding: 0.15rem 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    direction: ltr;
+    background: #ffffff;
+}
+
+.tree-node-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.btn-tree-action {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-tree-action.btn-add-l {
+    color: #0284c7;
+    background: #f0f9ff;
+    border-color: #bae6fd;
+}
+
+.btn-tree-action.btn-add-l:hover {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.btn-tree-action.btn-add-r {
+    color: #7c3aed;
+    background: #f5f3ff;
+    border-color: #ddd6fe;
+}
+
+.btn-tree-action.btn-add-r:hover {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+
+.btn-tree-action.btn-del {
+    color: #dc2626;
+    background: #fef2f2;
+    border-color: #fecaca;
+    padding: 0.15rem 0.3rem;
+}
+
+.btn-tree-action.btn-del:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.tree-empty-notice {
+    font-size: 0.78rem;
+    color: #64748b;
+    padding: 0.6rem;
+    text-align: center;
+    background: #ffffff;
+    border-radius: 6px;
+    border: 1px dashed #cbd5e1;
+}
+
 
 .queue-init-actions-bar {
     display: flex;
