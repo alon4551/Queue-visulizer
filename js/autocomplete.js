@@ -1,6 +1,6 @@
 /**
  * Autocomplete & IntelliSense Engine with Pedagogical Documentation
- * בית ספר מקיף דוד טוביהו - מגמת מדעי המחשב
+ * אלון שרייבמן - מגמת מדעי המחשב
  */
 
 class AutocompleteEngine {
@@ -302,12 +302,64 @@ class AutocompleteEngine {
     }
 
     bindEvents() {
-        // סגירת פופאפ בלחיצה מחוץ לעורך
-        document.addEventListener('click', (e) => {
-            if (this.visible && !this.popup.contains(e.target) && e.target !== this.textarea) {
+        // סגירת / מזעור פופאפ ההשלמה האוטומטית בלחיצה מחוץ לתיבה (כולל לחיצה בתוך עורך הקוד, על מספרי השורות, או בכל אזור אחר)
+        const handleOutsideDismiss = (e) => {
+            if (!this.visible) return;
+            if (this.popup && this.popup.contains(e.target)) return;
+            this.hide();
+        };
+
+        document.addEventListener('pointerdown', handleOutsideDismiss, true);
+        document.addEventListener('click', handleOutsideDismiss, true);
+
+        // סגירה במקש Escape בכל מקום
+        document.addEventListener('keydown', (e) => {
+            if (this.visible && e.key === 'Escape') {
                 this.hide();
             }
         });
+
+        // סגירה בעת יציאה מחלון הדפדפן
+        if (typeof window !== 'undefined') {
+            window.addEventListener('blur', () => {
+                if (this.visible) this.hide();
+            });
+        }
+    }
+
+    triggerManual() {
+        const caretPos = this.textarea.selectionStart;
+        const textBeforeCaret = this.textarea.value.substring(0, caretPos);
+        const currentLine = textBeforeCaret.substring(textBeforeCaret.lastIndexOf('\n') + 1);
+
+        // בדיקה 1: אם יש נקודה לפני הסמן (למשל: q. או console.)
+        const dotMatch = currentLine.match(/(?:([a-zA-Z_]\w*)\s*\.\s*)([a-zA-Z_]\w*)?$/);
+        if (dotMatch) {
+            this.onInput();
+            return;
+        }
+
+        // בדיקה 2: מילה נוכחית (גם אם קצרה מ-2 תווים)
+        const wordMatch = currentLine.match(/([a-zA-Z_]\w*)$/);
+        if (wordMatch) {
+            const word = wordMatch[1];
+            const lowerWord = word.toLowerCase();
+            const matches = this.catalog.filter(item => {
+                return item.label.toLowerCase().includes(lowerWord) ||
+                       item.keywords.some(k => k.includes(lowerWord));
+            });
+            if (matches.length > 0) {
+                this.replaceStart = caretPos - word.length;
+                this.replaceEnd = caretPos;
+                this.showSuggestions(matches, word);
+                return;
+            }
+        }
+
+        // בדיקה 3: אם אין תחילית כלל - נציג את כל הקטלוג העשיר לבחירה
+        this.replaceStart = caretPos;
+        this.replaceEnd = caretPos;
+        this.showSuggestions(this.catalog, '');
     }
 
     isOpen() {
@@ -455,7 +507,10 @@ class AutocompleteEngine {
 
         this.docEl.innerHTML = `
             <div class="doc-header">
-                <span class="doc-badge">${categoryBadge}</span>
+                <div class="doc-header-row">
+                    <span class="doc-badge">${categoryBadge}</span>
+                    <button type="button" class="autocomplete-close-btn" id="autocomplete-close-btn" title="מזער / סגור השלמה אוטומטית (Esc)" aria-label="סגור השלמה אוטומטית">✕</button>
+                </div>
                 <div class="doc-signature"><code>${item.signature}</code></div>
             </div>
             <div class="doc-body">
@@ -473,6 +528,16 @@ class AutocompleteEngine {
                 </div>
             </div>
         `;
+
+        const closeBtn = this.docEl.querySelector('.autocomplete-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                this.hide();
+                if (this.textarea) this.textarea.focus();
+            });
+        }
     }
 
     updateActiveItem() {

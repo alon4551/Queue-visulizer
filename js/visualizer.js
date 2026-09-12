@@ -1,6 +1,6 @@
 /**
  * Queue Visualizer & Debugger UI Controller
- * בית ספר מקיף דוד טוביהו - מגמת מדעי המחשב
+ * אלון שרייבמן - מגמת מדעי המחשב
  */
 
 class QueueVisualizerApp {
@@ -169,6 +169,15 @@ class QueueVisualizerApp {
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
                     this.autocomplete.hide();
+                    return;
+                }
+            }
+
+            // פתיחה יזומה או שחזור של חלון ההשלמה האוטומטית באמצעות Ctrl+Space
+            if ((e.ctrlKey || e.metaKey) && (e.code === 'Space' || e.key === ' ')) {
+                if (this.autocomplete) {
+                    e.preventDefault();
+                    this.autocomplete.triggerManual();
                     return;
                 }
             }
