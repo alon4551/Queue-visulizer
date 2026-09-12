@@ -222,9 +222,33 @@
                                             <div class="format-card-example" dir="ltr">10, 20, 30, 40</div>
                                             <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
                                         </div>
+
+                                        <!-- כרטיס 6: שרשרת חוליות (Node) -->
+                                        <div class="format-card" id="format-card-node" data-type="Node" onclick="applyQueueFormatSample('Node')">
+                                            <div class="format-card-header">
+                                                <span class="format-badge format-badge-node">שרשרת חוליות</span>
+                                                <span class="format-type-tag">Node&lt;int&gt;</span>
+                                            </div>
+                                            <div class="format-card-syntax" dir="ltr">12, 5, 8, 20 (Head ➔ ... ➔ null)</div>
+                                            <p class="format-card-desc">רצף ערכים המרכיבים שרשרת חוליות מקושרת דינמית, כאשר האיבר הראשון הוא ראש השרשרת (Head).</p>
+                                            <div class="format-card-example" dir="ltr">12, 5, 8, 20</div>
+                                            <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
+                                        </div>
+
+                                        <!-- כרטיס 7: עץ בינארי (BinNode) -->
+                                        <div class="format-card" id="format-card-binnode" data-type="BinNode" onclick="applyQueueFormatSample('BinNode')">
+                                            <div class="format-card-header">
+                                                <span class="format-badge format-badge-binnode">עץ בינארי</span>
+                                                <span class="format-type-tag">BinNode&lt;int&gt;</span>
+                                            </div>
+                                            <div class="format-card-syntax" dir="ltr">10, 5, 15, 3, 7 (Level-Order)</div>
+                                            <p class="format-card-desc">צומתי עץ בינארי בסדר רמות (סריקה לרוחב): שורש (Root), בן שמאלי ובן ימני.</p>
+                                            <div class="format-card-example" dir="ltr">10, 5, 15, 3, 7</div>
+                                            <button type="button" class="btn-apply-chip">📋 הדבק דוגמה</button>
+                                        </div>
                                     </div>
 
-                                    <!-- פירוט פדגוגי והסבר מעמיק -->
+                                    <!-- פירוט פדגוגי והסבר מעמיק למבני נתונים ותקן בגרות -->
                                     <div class="guide-details-box">
                                         <div class="guide-detail-item">
                                             <strong>📦 כיצד פועל אתחול מחלקה מותאמת אישית (כגון <code>Point</code>)?</strong>
@@ -238,6 +262,47 @@
                                             <p>
                                                 כאשר חתימת הפעולה מקבלת <code>Queue&lt;Queue&lt;int&gt;&gt; q</code>, כל זוג סוגריים מרובעים <code>[...]</code> מוגדר כתור עצמאי.
                                                 בחלונית התור יוצג מסלול ראשי ובו כל איבר הוא תור פנימי עם ראש (Head) וסוף (Tail), עליו ניתן להפעיל <code>Remove()</code>, <code>Insert()</code> ו-<code>Head()</code>.
+                                            </p>
+                                        </div>
+                                        <div class="guide-detail-item">
+                                            <strong>🥞 כיצד פועלת מחסנית (<code>Stack&lt;T&gt;</code>) — עקרון LIFO ודרישות הבגרות</strong>
+                                            <p>
+                                                מחסנית פועלת לפי עקרון <strong>LIFO</strong> (<em>Last In, First Out</em>) — האיבר האחרון שנכנס הוא תמיד הראשון שיוצא.
+                                                <br>
+                                                • <strong>סדר האתחול בקלט</strong>: הערכים מוזנים משמאל לימין — האיבר השמאלי ביותר נמצא בקרקעית המחסנית (<code>[Bottom]</code>) והימני ביותר נמצא בראשה (<code>[Top]</code>).
+                                                <br>
+                                                • <strong>פעולות מורשות בבגרות</strong>: <code>Push(x)</code> להכנסת איבר, <code>Pop()</code> לשליפת איבר מראש המחסנית והחזרתו, <code>Top()</code> להצצה באיבר שבראש המחסנית <strong>ללא הוצאה</strong> (<strong>שימו לב:</strong> בתקן בגרות מדעי המחשב אין להשתמש ב-<code>Peek()</code> אלא ב-<code>Top()</code> בלבד!), ו-<code>IsEmpty()</code> לבדיקה האם המחסנית ריקה.
+                                                <br>
+                                                • <strong>כלל הברזל לשחזור</strong>: שליפת איברים באמצעות <code>Pop()</code> מרוקנת את המחסנית. בסריקה יש להעביר את האיברים למחסנית עזר <code>Stack&lt;T&gt; temp = new Stack&lt;T&gt;()</code>, ובסיום לשחזרם חזרה למחסנית המקורית.
+                                            </p>
+                                        </div>
+                                        <div class="guide-detail-item">
+                                            <strong>🔗 כיצד פועלת שרשרת חוליות (<code>Node&lt;T&gt;</code>) — מבנה דינמי מקושר</strong>
+                                            <p>
+                                                שרשרת חוליות היא מבנה נתונים דינמי רקורסיבי, שבו כל חוליה מכילה ערך מידע והפניה (מצביע) לחוליה הבאה. החוליה האחרונה בשרשרת מצביעה תמיד על <code>null</code>.
+                                                <br>
+                                                • <strong>סדר האתחול בקלט</strong>: הערכים מוזנים מופרדים בפסיקים (לדוגמה: <code>12, 5, 8, 20</code>). האיבר הראשון (<code>12</code>) הוא ראש השרשרת (<code>Head</code> או <code>first</code>), שמצביע על <code>5</code>, וכן הלאה עד לחוליה האחרונה (<code>20</code>) שמצביעה על <code>null</code>.
+                                                <br>
+                                                • <strong>פעולות מורשות בבגרות במחלקה <code>Node&lt;T&gt;</code></strong>:
+                                                <code>GetInfo()</code> (שליפת הערך), <code>SetInfo(x)</code> (עדכון הערך), <code>GetNext()</code> (קבלת החוליה הבאה), <code>SetNext(n)</code> (חיבור חוליה הבאה), <code>HasNext()</code> (בדיקה האם קיימת חוליה הבאה), ו-<code>ToString()</code> להדפסה.
+                                                <br>
+                                                • <strong>טיפ מציל חיים בסריקה</strong>: לעולם אין לקדם את מצביע ראש השרשרת ישירות (<code>chain = chain.GetNext()</code>), כי אז השרשרת תאבד! יש להגדיר תמיד מצביע ריצה (Runner) כגון: <code>Node&lt;int&gt; pos = chain;</code> ולנוע בעזרתו: <code>pos = pos.GetNext();</code>.
+                                            </p>
+                                        </div>
+                                        <div class="guide-detail-item">
+                                            <strong>🌳 כיצד פועל עץ בינארי (<code>BinNode&lt;T&gt;</code>) — מבנה נתונים היררכי</strong>
+                                            <p>
+                                                עץ בינארי הוא מבנה נתונים היררכי רקורסיבי. הצומת הראשי נקרא <strong>שורש (Root)</strong>, ולכל צומת יש לכל היותר שני בנים: תת-עץ שמאלי (<code>left</code>) ותת-עץ ימני (<code>right</code>). צומת ללא בנים נקרא <strong>עלה (Leaf)</strong>.
+                                                <br>
+                                                • <strong>סדר האתחול בקלט</strong>: סדר רמות (Level-Order) — השורש ראשון, ולאחריו בניו ברמה 1 משמאל לימין, וכן הלאה (לדוגמה: ב-<code>10, 5, 15, 3, 7</code> השורש הוא <code>10</code>, ילדו השמאלי <code>5</code>, ילדו הימני <code>15</code>, וילדי <code>5</code> הם <code>3</code> ו-<code>7</code>).
+                                                <br>
+                                                • <strong>פעולות מורשות בבגרות במחלקה <code>BinNode&lt;T&gt;</code></strong>:
+                                                <code>GetValue()</code> (ערך הצומת), <code>SetValue(x)</code> (עדכון ערך), <code>GetLeft()</code> / <code>GetRight()</code> (הפניה לבנים), <code>SetLeft(t)</code> / <code>SetRight(t)</code> (חיבור בנים), <code>HasLeft()</code> / <code>HasRight()</code> (בדיקת קיום בנים), ו-<code>IsLeaf()</code> (בדיקת עלה: <code>!HasLeft() &amp;&amp; !HasRight()</code>).
+                                                <br>
+                                                • <strong>סריקות עץ רקורסיביות בבגרות</strong>:
+                                                <strong>Pre-order (תחילית)</strong>: שורש ➔ שמאל ➔ ימין | 
+                                                <strong>In-order (תוכית)</strong>: שמאל ➔ שורש ➔ ימין (מפיקה סדר ממוין ב-BST) | 
+                                                <strong>Post-order (סופית)</strong>: שמאל ➔ ימין ➔ שורש.
                                             </p>
                                         </div>
                                     </div>
@@ -360,6 +425,8 @@
                             <option value="stack-basic">🥞 מחסנית Stack: פעולות בסיסיות (Push, Pop, Top)</option>
                             <option value="stack-reverse-queue">🔄🥞 משולב: היפוך תור באמצעות מחסנית</option>
                             <option value="stack-brackets">🥞 בדיקת תקינות סוגריים: Stack&lt;char&gt;</option>
+                            <option value="node-basic">🔗 שרשרת חוליות Node: סריקה וחישוב</option>
+                            <option value="binnode-basic">🌳 עץ בינארי BinNode: סריקה תוכית (In-order)</option>
                         </select>
                         <span class="badge">C# בגרות</span>
                         <span class="badge" title="לחץ Ctrl+Space להשלמה אוטומטית בכל עת">Ctrl+Space להשלמה</span>

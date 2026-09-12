@@ -1116,6 +1116,76 @@ public class Program
                     this.initialParams = { expr: "([()]())" };
                     this.setStudioMode('stack', true);
                     this.renderEditorTabs();
+                } else if (choice === 'node-basic') {
+                    const code = `// סריקה והדפסה של שרשרת חוליות Node<int>
+public class Program
+{
+    public static void Main(Node<int> chain)
+    {
+        Console.WriteLine("שרשרת חוליות התחלתית: " + chain.ToString());
+        
+        // שימוש במצביע עזר (Runner) כדי לא לאבד את ראש השרשרת (כלל ברזל בבגרות!)
+        Node<int> pos = chain;
+        int count = 0;
+        int sum = 0;
+        
+        while (pos != null)
+        {
+            int val = pos.GetInfo();
+            Console.WriteLine("חוליה " + count + ": ערך = " + val);
+            sum = sum + val;
+            count++;
+            pos = pos.GetNext();
+        }
+        
+        Console.WriteLine("אורך השרשרת: " + count + ", סכום הערכים: " + sum);
+    }
+}`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
+                    this.initialParams = { chain: [12, 5, 8, 20] };
+                    this.setStudioMode('node', true);
+                    this.renderEditorTabs();
+                } else if (choice === 'binnode-basic') {
+                    const code = `// סריקה תוכית (In-order) וחישוב צמתים בעץ בינארי BinNode<int>
+public class Program
+{
+    public static int CountNodes(BinNode<int> root)
+    {
+        if (root == null)
+            return 0;
+        return 1 + CountNodes(root.GetLeft()) + CountNodes(root.GetRight());
+    }
+
+    public static void InOrder(BinNode<int> root)
+    {
+        if (root != null)
+        {
+            InOrder(root.GetLeft());
+            Console.WriteLine("ביקור בצומת: " + root.GetValue());
+            InOrder(root.GetRight());
+        }
+    }
+
+    public static void Main(BinNode<int> root)
+    {
+        Console.WriteLine("--- סריקה תוכית (In-order) של העץ ---");
+        InOrder(root);
+        int total = CountNodes(root);
+        Console.WriteLine("סך כל הצמתים בעץ: " + total);
+    }
+}`;
+                    this.editorFiles = {
+                        'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
+                    };
+                    this.activeFileName = 'Program.cs';
+                    this.dom.codeTextarea.value = code;
+                    this.initialParams = { root: [10, 5, 15, 3, 7] };
+                    this.setStudioMode('binnode', true);
+                    this.renderEditorTabs();
                 }
 
                 this.saveCurrentModeState();
@@ -1665,7 +1735,8 @@ public class Program
     }
 
     applyQueueFormatSample(sampleType) {
-        if (!this.dom.initialQueueInput) return;
+        const wasInInitTab = (this.dom.tabPaneQueueInit && this.dom.tabPaneQueueInit.classList.contains('active')) ||
+            (document.getElementById('tab-pane-queue-init') && document.getElementById('tab-pane-queue-init').classList.contains('active'));
 
         let sampleVal = '';
         let targetCodePreset = null;
@@ -1673,6 +1744,21 @@ public class Program
         if (sampleType === 'Stack') {
             sampleVal = '10, 20, 30, 40, 50';
             targetCodePreset = 'stack-basic';
+            if (this.studioMode !== 'stack') {
+                this.switchStudioMode('stack');
+            }
+        } else if (sampleType === 'Node') {
+            sampleVal = '12, 5, 8, 20';
+            targetCodePreset = 'node-basic';
+            if (this.studioMode !== 'node') {
+                this.switchStudioMode('node');
+            }
+        } else if (sampleType === 'BinNode') {
+            sampleVal = '10, 5, 15, 3, 7';
+            targetCodePreset = 'binnode-basic';
+            if (this.studioMode !== 'binnode') {
+                this.switchStudioMode('binnode');
+            }
         } else if (sampleType === 'Point' || this.isCustomClassType(sampleType)) {
             if (this.isCustomClassType(this.initialQueueType) && this.initialQueueType !== 'Point') {
                 const sampleItems = this.generateRandomQueue(this.initialQueueType);
@@ -1713,16 +1799,28 @@ public class Program
             selectEl.dispatchEvent(new Event('change'));
         }
 
-        this.dom.initialQueueInput.value = sampleVal;
+        const firstInput = document.getElementById('initial-queue-input') ||
+            (this.dom.queueParamsContainer ? this.dom.queueParamsContainer.querySelector('.param-input') : null) ||
+            this.dom.initialQueueInput;
+        if (firstInput) {
+            firstInput.value = sampleVal;
+        }
+
         this.updateQueueFromInput();
+
+        if (wasInInitTab && this.switchQueueTab) {
+            this.switchQueueTab('queue-init');
+        }
     }
 
     randomizeAllQueues() {
         if (!this.dom.queueParamsContainer) return;
         const queueInputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-queue="true"]');
         const stackInputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-stack="true"]');
+        const nodeInputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-node="true"]');
+        const binNodeInputs = this.dom.queueParamsContainer.querySelectorAll('.param-input[data-is-binnode="true"]');
 
-        if (queueInputs.length === 0 && stackInputs.length === 0) {
+        if (queueInputs.length === 0 && stackInputs.length === 0 && nodeInputs.length === 0 && binNodeInputs.length === 0) {
             const randItems = this.generateRandomQueue(this.initialQueueType);
             this.initialQueue = randItems;
             this.initialParams['q'] = randItems;
@@ -1759,6 +1857,20 @@ public class Program
             input.value = this.formatQueueInputValue(randItems, sType);
         });
 
+        nodeInputs.forEach(input => {
+            const name = input.dataset.paramName;
+            const randItems = this.generateRandomQueue('int');
+            this.initialParams[name] = randItems;
+            input.value = randItems.join(', ');
+        });
+
+        binNodeInputs.forEach(input => {
+            const name = input.dataset.paramName;
+            const randItems = [Math.floor(Math.random() * 50) + 1, Math.floor(Math.random() * 30) + 1, Math.floor(Math.random() * 50) + 31, Math.floor(Math.random() * 20) + 1, Math.floor(Math.random() * 20) + 21];
+            this.initialParams[name] = randItems;
+            input.value = randItems.join(', ');
+        });
+
         this.recompile();
     }
 
@@ -1788,6 +1900,8 @@ public class Program
                 const name = input.dataset.paramName;
                 const isQueue = input.dataset.isQueue === 'true';
                 const isStack = input.dataset.isStack === 'true';
+                const isNode = input.dataset.isNode === 'true';
+                const isBinNode = input.dataset.isBinNode === 'true';
                 const pType = input.dataset.paramType || '';
 
                 if (isQueue) {
@@ -1809,6 +1923,16 @@ public class Program
                     if (parsed.length === 0) {
                         throw new Error(`אנא הזן לפחות איבר אחד למחסנית ${name}.`);
                     }
+                    this.initialParams[name] = parsed;
+                } else if (isNode) {
+                    const match = pType.match(/^Node<(.+)>$/);
+                    const nType = match ? match[1].trim() : 'int';
+                    const parsed = this.parseQueueInput(input.value, nType);
+                    this.initialParams[name] = parsed;
+                } else if (isBinNode) {
+                    const match = pType.match(/^BinNode<(.+)>$/);
+                    const bType = match ? match[1].trim() : 'int';
+                    const parsed = this.parseQueueInput(input.value, bType);
                     this.initialParams[name] = parsed;
                 } else {
                     let val = input.value.trim();
@@ -1900,6 +2024,8 @@ public class Program
             // עדכון הכרטיסייה הפעילה במדריך הפורמט לפי התור או המחסנית הראשונים
             const primaryQueueParam = result.params.find(p => p.isQueue);
             const primaryStackParam = result.params.find(p => p.isStack);
+            const primaryNodeParam = result.params.find(p => p.isNode || (p.type && p.type.startsWith('Node')));
+            const primaryBinNodeParam = result.params.find(p => p.isBinNode || (p.type && p.type.startsWith('BinNode')));
             if (primaryQueueParam) {
                 const qType = primaryQueueParam.itemType || 'int';
 
@@ -1934,6 +2060,30 @@ public class Program
                 }
             } else if (primaryStackParam) {
                 const activeCard = document.getElementById('format-card-stack');
+                if (activeCard) {
+                    activeCard.classList.add('active-type');
+                    const ind = document.createElement('span');
+                    ind.className = 'format-active-indicator';
+                    ind.innerHTML = '⚡ הטיפוס הנוכחי בקוד';
+                    const header = activeCard.querySelector('.format-card-header');
+                    if (header) {
+                        header.appendChild(ind);
+                    }
+                }
+            } else if (primaryNodeParam) {
+                const activeCard = document.getElementById('format-card-node');
+                if (activeCard) {
+                    activeCard.classList.add('active-type');
+                    const ind = document.createElement('span');
+                    ind.className = 'format-active-indicator';
+                    ind.innerHTML = '⚡ הטיפוס הנוכחי בקוד';
+                    const header = activeCard.querySelector('.format-card-header');
+                    if (header) {
+                        header.appendChild(ind);
+                    }
+                }
+            } else if (primaryBinNodeParam) {
+                const activeCard = document.getElementById('format-card-binnode');
                 if (activeCard) {
                     activeCard.classList.add('active-type');
                     const ind = document.createElement('span');
@@ -2085,6 +2235,94 @@ public class Program
                                 const newItems = this.generateRandomStack(sType);
                                 this.initialParams[param.name] = newItems;
                                 inputEl.value = this.formatQueueInputValue(newItems, sType);
+                                this.recompile();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            });
+                        }
+                    } else if (param.isNode || (param.type && param.type.startsWith('Node'))) {
+                        const nType = param.itemType || param.nodeItemType || 'int';
+                        if (!this.initialParams[param.name]) {
+                            this.initialParams[param.name] = [12, 5, 8, 20];
+                            typeChanged = true;
+                        }
+
+                        let placeholder = '12, 5, 8, 20';
+                        const formattedVal = Array.isArray(this.initialParams[param.name])
+                            ? this.initialParams[param.name].join(', ')
+                            : String(this.initialParams[param.name]);
+
+                        card.innerHTML = `
+                            <div class="param-init-header">
+                                <span class="param-init-title">🔗 חוליה (שרשרת): <code>Node&lt;${nType}&gt; ${param.name}</code></span>
+                                <span class="param-badge badge-node">חוליה ${nType}</span>
+                            </div>
+                            <div class="param-init-row">
+                                <input type="text" class="input-text param-input" data-param-name="${param.name}" data-param-type="${param.type}" data-is-node="true" placeholder="${placeholder}" value="${formattedVal}" />
+                                <button type="button" class="btn btn-secondary btn-random-single-node" data-param-name="${param.name}" title="🎲 הגרל ערכים לשרשרת ${param.name}">🎲</button>
+                            </div>
+                            <p class="param-init-hint">
+                                סדר קלט: <strong>[ראש השרשרת Head]</strong> ➔ <strong>איבר הבא</strong> ➔ ... ➔ <strong>null</strong>. מועבר כפרמטר <code>${param.name}</code> לפעולה Main.
+                            </p>
+                        `;
+
+                        const inputEl = card.querySelector('.param-input');
+                        inputEl.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                this.updateQueueFromInput();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            }
+                        });
+
+                        const singleRandBtn = card.querySelector('.btn-random-single-node');
+                        if (singleRandBtn) {
+                            singleRandBtn.addEventListener('click', () => {
+                                const newItems = this.generateRandomQueue('int');
+                                this.initialParams[param.name] = newItems;
+                                inputEl.value = newItems.join(', ');
+                                this.recompile();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            });
+                        }
+                    } else if (param.isBinNode || (param.type && param.type.startsWith('BinNode'))) {
+                        const bType = param.itemType || param.binNodeItemType || 'int';
+                        if (!this.initialParams[param.name]) {
+                            this.initialParams[param.name] = [10, 5, 15, 3, 7];
+                            typeChanged = true;
+                        }
+
+                        let placeholder = '10, 5, 15, 3, 7';
+                        const formattedVal = Array.isArray(this.initialParams[param.name])
+                            ? this.initialParams[param.name].join(', ')
+                            : String(this.initialParams[param.name]);
+
+                        card.innerHTML = `
+                            <div class="param-init-header">
+                                <span class="param-init-title">🌳 עץ בינארי: <code>BinNode&lt;${bType}&gt; ${param.name}</code></span>
+                                <span class="param-badge badge-binnode">עץ בינארי ${bType}</span>
+                            </div>
+                            <div class="param-init-row">
+                                <input type="text" class="input-text param-input" data-param-name="${param.name}" data-param-type="${param.type}" data-is-binnode="true" placeholder="${placeholder}" value="${formattedVal}" />
+                                <button type="button" class="btn btn-secondary btn-random-single-binnode" data-param-name="${param.name}" title="🎲 הגרל ערכים לעץ ${param.name}">🎲</button>
+                            </div>
+                            <p class="param-init-hint">
+                                סדר קלט: <strong>סדר רמות (Level-Order)</strong>: שורש העץ ראשון, ולאחריו בנים שמאלי וימני. מועבר כפרמטר <code>${param.name}</code> לפעולה Main.
+                            </p>
+                        `;
+
+                        const inputEl = card.querySelector('.param-input');
+                        inputEl.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                this.updateQueueFromInput();
+                                if (this.switchQueueTab) this.switchQueueTab('queue-view');
+                            }
+                        });
+
+                        const singleRandBtn = card.querySelector('.btn-random-single-binnode');
+                        if (singleRandBtn) {
+                            singleRandBtn.addEventListener('click', () => {
+                                const newItems = [Math.floor(Math.random() * 50) + 1, Math.floor(Math.random() * 30) + 1, Math.floor(Math.random() * 50) + 31, Math.floor(Math.random() * 20) + 1, Math.floor(Math.random() * 20) + 21];
+                                this.initialParams[param.name] = newItems;
+                                inputEl.value = newItems.join(', ');
                                 this.recompile();
                                 if (this.switchQueueTab) this.switchQueueTab('queue-view');
                             });

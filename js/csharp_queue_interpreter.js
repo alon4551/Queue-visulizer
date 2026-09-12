@@ -61,10 +61,25 @@ class CSharpQueueInterpreter {
                 originalPreserved: false
             });
 
+            const entryFunc = (this.ast && this.ast.functions) ? (this.ast.functions.find(f => f.name === 'Main') || this.ast.functions[0]) : null;
+            const fallbackParams = entryFunc ? entryFunc.params.map(p => ({
+                name: p.name,
+                type: p.type,
+                isQueue: p.type.startsWith('Queue'),
+                queueItemType: p.type.startsWith('Queue') ? (p.type.match(/^Queue<(.+)>$/) ? p.type.match(/^Queue<(.+)>$/)[1].trim() : 'int') : null,
+                isStack: p.type.startsWith('Stack'),
+                stackItemType: p.type.startsWith('Stack') ? (p.type.match(/^Stack<(.+)>$/) ? p.type.match(/^Stack<(.+)>$/)[1].trim() : 'int') : null,
+                isNode: p.type.startsWith('Node'),
+                nodeItemType: p.type.startsWith('Node') ? (p.type.match(/^Node<(.+)>$/) ? p.type.match(/^Node<(.+)>$/)[1].trim() : 'int') : null,
+                isBinNode: p.type.startsWith('BinNode'),
+                binNodeItemType: p.type.startsWith('BinNode') ? (p.type.match(/^BinNode<(.+)>$/) ? p.type.match(/^BinNode<(.+)>$/)[1].trim() : 'int') : null
+            })) : [];
+
             return {
                 frames: existingFrames,
                 error: err.message,
                 errorFile,
+                params: fallbackParams,
                 originalPreserved: false
             };
         }
@@ -644,7 +659,7 @@ class Parser {
     isType(val) {
         if (!val) return false;
         if (['int', 'char', 'double', 'bool', 'string', 'void', 'var'].includes(val)) return true;
-        if (val.startsWith('Queue') || val.startsWith('Stack')) return true;
+        if (val.startsWith('Queue') || val.startsWith('Stack') || val.startsWith('Node') || val.startsWith('BinNode')) return true;
         if (this.knownClasses && this.knownClasses.has(val)) return true;
         const next = this.peek(1);
         const nextNext = this.peek(2);
@@ -876,6 +891,12 @@ class Parser {
             return { type: 'Literal', value: charVal, raw: tok.value, isChar: true, line: tok.line };
         }
 
+        // null
+        if (tok.value === 'null') {
+            this.consume();
+            return { type: 'Literal', value: null, raw: 'null', line: tok.line };
+        }
+
         // בוליאני
         if (tok.value === 'true' || tok.value === 'false') {
             this.consume();
@@ -1053,6 +1074,106 @@ class StackInstance {
 }
 
 /**
+ * מודל מופע חוליה (Node<T>) לפי תקן משרד החינוך
+ */
+class NodeInstance {
+    constructor(info, next = null) {
+        this.info = info;
+        this.next = next;
+    }
+
+    getInfo() { return this.info; }
+    GetInfo() { return this.info; }
+    setInfo(v) { this.info = v; }
+    SetInfo(v) { this.info = v; }
+    getNext() { return this.next; }
+    GetNext() { return this.next; }
+    setNext(n) { this.next = n; }
+    SetNext(n) { this.next = n; }
+    hasNext() { return this.next !== null; }
+    HasNext() { return this.next !== null; }
+
+    clone() {
+        return new NodeInstance(this.info, this.next ? this.next.clone() : null);
+    }
+
+    toString() {
+        const items = [];
+        let curr = this;
+        let count = 0;
+        while (curr && count < 50) {
+            items.push(curr.info);
+            curr = curr.next;
+            count++;
+        }
+        return items.join(' -> ') + ' -> null';
+    }
+    ToString() { return this.toString(); }
+}
+
+function buildNodeChain(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    let head = null;
+    let tail = null;
+    for (const v of arr) {
+        const n = new NodeInstance(v, null);
+        if (!head) { head = n; tail = n; }
+        else { tail.next = n; tail = n; }
+    }
+    return head;
+}
+
+/**
+ * מודל מופע עץ בינארי (BinNode<T>) לפי תקן משרד החינוך
+ */
+class BinNodeInstance {
+    constructor(value, left = null, right = null) {
+        this.value = value;
+        this.left = left;
+        this.right = right;
+    }
+
+    getValue() { return this.value; }
+    GetValue() { return this.value; }
+    setValue(v) { this.value = v; }
+    SetValue(v) { this.value = v; }
+    getLeft() { return this.left; }
+    GetLeft() { return this.left; }
+    setLeft(l) { this.left = l; }
+    SetLeft(l) { this.left = l; }
+    getRight() { return this.right; }
+    GetRight() { return this.right; }
+    setRight(r) { this.right = r; }
+    SetRight(r) { this.right = r; }
+    hasLeft() { return this.left !== null; }
+    HasLeft() { return this.left !== null; }
+    hasRight() { return this.right !== null; }
+    HasRight() { return this.right !== null; }
+    isLeaf() { return this.left === null && this.right === null; }
+    IsLeaf() { return this.left === null && this.right === null; }
+
+    clone() {
+        return new BinNodeInstance(this.value, this.left ? this.left.clone() : null, this.right ? this.right.clone() : null);
+    }
+
+    toString() { return String(this.value); }
+    ToString() { return String(this.value); }
+}
+
+function buildBinTree(arr) {
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const nodes = arr.map(v => (v !== null && v !== undefined) ? new BinNodeInstance(v) : null);
+    for (let i = 0; i < nodes.length; i++) {
+        if (!nodes[i]) continue;
+        const leftIdx = 2 * i + 1;
+        const rightIdx = 2 * i + 2;
+        if (leftIdx < nodes.length) nodes[i].left = nodes[leftIdx];
+        if (rightIdx < nodes.length) nodes[i].right = nodes[rightIdx];
+    }
+    return nodes[0];
+}
+
+/**
  * סביבת הרצה המייצרת את ה-Trace עבור הדיבאגר
  */
 class RuntimeEnvironment {
@@ -1178,6 +1299,12 @@ class RuntimeEnvironment {
                         this.initialStackType = stType;
                         this.initialStackSnapshot = this.snapshotItems(stackInst.items);
                     }
+                } else if (param.type.startsWith('Node')) {
+                    const chainInst = buildNodeChain(Array.isArray(rawVal) ? rawVal : (rawVal !== undefined && rawVal !== null ? [rawVal] : [12, 5, 8, 20]));
+                    initialArgs.push(chainInst);
+                } else if (param.type.startsWith('BinNode')) {
+                    const treeInst = buildBinTree(Array.isArray(rawVal) ? rawVal : (rawVal !== undefined && rawVal !== null ? [rawVal] : [10, 5, 15, 3, 7]));
+                    initialArgs.push(treeInst);
                 } else {
                     const parsedVal = this.parsePrimitiveParamValue(rawVal, param.type, param.name);
                     initialArgs.push(parsedVal);
@@ -1283,7 +1410,11 @@ class RuntimeEnvironment {
                 isQueue: p.type.startsWith('Queue'),
                 queueItemType: p.type.startsWith('Queue') ? (p.type.match(/^Queue<(.+)>$/) ? p.type.match(/^Queue<(.+)>$/)[1].trim() : 'int') : null,
                 isStack: p.type.startsWith('Stack'),
-                stackItemType: p.type.startsWith('Stack') ? (p.type.match(/^Stack<(.+)>$/) ? p.type.match(/^Stack<(.+)>$/)[1].trim() : 'int') : null
+                stackItemType: p.type.startsWith('Stack') ? (p.type.match(/^Stack<(.+)>$/) ? p.type.match(/^Stack<(.+)>$/)[1].trim() : 'int') : null,
+                isNode: p.type.startsWith('Node'),
+                nodeItemType: p.type.startsWith('Node') ? (p.type.match(/^Node<(.+)>$/) ? p.type.match(/^Node<(.+)>$/)[1].trim() : 'int') : null,
+                isBinNode: p.type.startsWith('BinNode'),
+                binNodeItemType: p.type.startsWith('BinNode') ? (p.type.match(/^BinNode<(.+)>$/) ? p.type.match(/^BinNode<(.+)>$/)[1].trim() : 'int') : null
             })) : [],
             originalPreserved,
             consoleOutputs: this.consoleOutputs
@@ -1592,7 +1723,7 @@ class RuntimeEnvironment {
         try {
             for (const stmt of fn.body) {
                 returnVal = this.executeStatement(stmt, scope);
-                if (returnVal !== undefined && stmt.type === 'ReturnStatement') {
+                if (returnVal !== undefined) {
                     break;
                 }
             }
@@ -2100,6 +2231,19 @@ class RuntimeEnvironment {
                     return newSt;
                 }
 
+                if (expr.className.startsWith('Node')) {
+                    const info = expr.arguments && expr.arguments.length > 0 ? this.evaluateExpression(expr.arguments[0], scope) : 0;
+                    const next = expr.arguments && expr.arguments.length > 1 ? this.evaluateExpression(expr.arguments[1], scope) : null;
+                    return new NodeInstance(info, next);
+                }
+
+                if (expr.className.startsWith('BinNode')) {
+                    const val = expr.arguments && expr.arguments.length > 0 ? this.evaluateExpression(expr.arguments[0], scope) : 0;
+                    const left = expr.arguments && expr.arguments.length > 1 ? this.evaluateExpression(expr.arguments[1], scope) : null;
+                    const right = expr.arguments && expr.arguments.length > 2 ? this.evaluateExpression(expr.arguments[2], scope) : null;
+                    return new BinNodeInstance(val, left, right);
+                }
+
                 if (this.classes.has(expr.className)) {
                     const classDecl = this.classes.get(expr.className);
                     const fieldMeta = new Map();
@@ -2345,13 +2489,55 @@ class RuntimeEnvironment {
                     } else if (methodName === 'IsEmpty') {
                         const isEmpty = obj.isEmpty();
                         this.recordFrame(expr.line, `פעולת ${obj.name}.IsEmpty(): בדיקת ריקנות -> ${isEmpty ? 'אמת (true)' : 'שקר (false)'}`, 'idle', false, null, null, null, obj.name);
-                        return isEmpty;
                     } else {
                         throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' במחסנית (לפי תקן משרד החינוך הפעולות הן: Push, Pop, Top, IsEmpty)` };
                     }
+                } else if (obj instanceof NodeInstance) {
+                    const methodName = expr.method;
+                    if (methodName === 'GetInfo') return obj.getInfo();
+                    if (methodName === 'SetInfo') {
+                        const val = this.evaluateExpression(expr.arguments[0], scope);
+                        obj.setInfo(val);
+                        return null;
+                    }
+                    if (methodName === 'GetNext') return obj.getNext();
+                    if (methodName === 'SetNext') {
+                        const nextObj = this.evaluateExpression(expr.arguments[0], scope);
+                        obj.setNext(nextObj);
+                        return null;
+                    }
+                    if (methodName === 'HasNext') return obj.hasNext();
+                    if (methodName === 'ToString') return obj.toString();
+                    throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' בחוליה Node` };
+                } else if (obj instanceof BinNodeInstance) {
+                    const methodName = expr.method;
+                    if (methodName === 'GetValue') return obj.getValue();
+                    if (methodName === 'SetValue') {
+                        const val = this.evaluateExpression(expr.arguments[0], scope);
+                        obj.setValue(val);
+                        return null;
+                    }
+                    if (methodName === 'GetLeft') return obj.getLeft();
+                    if (methodName === 'SetLeft') {
+                        const sub = this.evaluateExpression(expr.arguments[0], scope);
+                        obj.setLeft(sub);
+                        return null;
+                    }
+                    if (methodName === 'GetRight') return obj.getRight();
+                    if (methodName === 'SetRight') {
+                        const sub = this.evaluateExpression(expr.arguments[0], scope);
+                        obj.setRight(sub);
+                        return null;
+                    }
+                    if (methodName === 'HasLeft') return obj.hasLeft();
+                    if (methodName === 'HasRight') return obj.hasRight();
+                    if (methodName === 'IsLeaf') return obj.isLeaf();
+                    if (methodName === 'ToString') return obj.toString();
+                    throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' בעץ בינארי BinNode` };
+                } else {
+                    const targetObjName = expr.object && expr.object.name ? `'${expr.object.name}'` : 'האובייקט';
+                    throw { line: expr.line, message: `${targetObjName} אינו תור, מחסנית או אובייקט מאותחל` };
                 }
-                const targetObjName = expr.object && expr.object.name ? `'${expr.object.name}'` : 'האובייקט';
-                throw { line: expr.line, message: `${targetObjName} אינו תור, מחסנית או אובייקט מאותחל` };
             }
 
             case 'FunctionCallExpression': {
@@ -2578,8 +2764,10 @@ if (typeof window !== 'undefined') {
     window.CSharpQueueInterpreter = CSharpQueueInterpreter;
     window.QueueInstance = QueueInstance;
     window.StackInstance = StackInstance;
+    window.NodeInstance = NodeInstance;
+    window.BinNodeInstance = BinNodeInstance;
     window.ClassInstance = ClassInstance;
 }
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { CSharpQueueInterpreter, QueueInstance, StackInstance, ClassInstance, RuntimeEnvironment };
+    module.exports = { CSharpQueueInterpreter, QueueInstance, StackInstance, NodeInstance, BinNodeInstance, ClassInstance, RuntimeEnvironment };
 }

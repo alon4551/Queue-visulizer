@@ -2329,6 +2329,31 @@ body.queue-dragging-active * {
     color: #9d174d;
 }
 
+.format-badge-stack {
+    background: #fef08a;
+    color: #854d0e;
+}
+
+.format-badge-node {
+    background: #cffafe;
+    color: #0e7490;
+}
+
+.format-badge-binnode {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.badge-node {
+    background: #cffafe;
+    color: #0e7490;
+}
+
+.badge-binnode {
+    background: #dcfce7;
+    color: #15803d;
+}
+
 .format-type-tag {
     font-family: 'Consolas', monospace;
     font-size: 0.74rem;
@@ -2430,15 +2455,25 @@ body.queue-dragging-active * {
     line-height: 1.45;
 }
 
+.guide-detail-item {
+    padding: 0.25rem 0;
+}
+
+.guide-detail-item + .guide-detail-item {
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 0.55rem;
+}
+
 .guide-detail-item strong {
     color: #1e293b;
     display: block;
-    margin-bottom: 0.15rem;
+    margin-bottom: 0.25rem;
 }
 
 .guide-detail-item p {
     color: #475569;
     margin: 0;
+    line-height: 1.55;
 }
 
 .guide-detail-item code {
