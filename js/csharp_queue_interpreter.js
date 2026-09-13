@@ -963,7 +963,7 @@ class ClassInstance {
 class QueueInstance {
     constructor(name, initialItems = [], itemType = 'int') {
         this.id = 'q_' + Math.random().toString(36).substring(2, 9);
-        this.name = name;
+        this.name = name || 'q';
         this.itemType = itemType;
         this.items = [...initialItems]; // index 0 = Head, index length-1 = Tail
         this.lastOp = 'none';
@@ -975,6 +975,10 @@ class QueueInstance {
         this.lastOp = 'insert';
         this.targetVal = val;
     }
+    Insert(val) { return this.insert(val); }
+    enqueue(val) { return this.insert(val); }
+    Enqueue(val) { return this.insert(val); }
+    add(val) { return this.insert(val); }
 
     remove() {
         if (this.isEmpty()) {
@@ -985,6 +989,9 @@ class QueueInstance {
         this.targetVal = val;
         return val;
     }
+    Remove() { return this.remove(); }
+    dequeue() { return this.remove(); }
+    Dequeue() { return this.remove(); }
 
     head() {
         if (this.isEmpty()) {
@@ -994,10 +1001,21 @@ class QueueInstance {
         this.targetVal = this.items[0];
         return this.items[0];
     }
+    Head() { return this.head(); }
+    peek() { return this.head(); }
+    Peek() { return this.head(); }
+    front() { return this.head(); }
+    Front() { return this.head(); }
 
     isEmpty() {
         return this.items.length === 0;
     }
+    IsEmpty() { return this.isEmpty(); }
+
+    get Count() { return this.items.length; }
+    get count() { return this.items.length; }
+    get Length() { return this.items.length; }
+    get length() { return this.items.length; }
 
     clone(newName) {
         const clonedItems = this.items.map(it => {
@@ -1013,6 +1031,7 @@ class QueueInstance {
     toString() {
         return `[${this.items.join(', ')}]`;
     }
+    ToString() { return this.toString(); }
 }
 
 /**
@@ -1021,7 +1040,7 @@ class QueueInstance {
 class StackInstance {
     constructor(name, initialItems = [], itemType = 'int') {
         this.id = 'st_' + Math.random().toString(36).substring(2, 9);
-        this.name = name;
+        this.name = name || 'st';
         this.itemType = itemType;
         // אינדקס 0 = תחתית המחסנית (Bottom), אינדקס length-1 = ראש המחסנית (Top)
         this.items = [...initialItems];
@@ -1034,6 +1053,9 @@ class StackInstance {
         this.lastOp = 'push';
         this.targetVal = val;
     }
+    Push(val) { return this.push(val); }
+    insert(val) { return this.push(val); }
+    add(val) { return this.push(val); }
 
     pop() {
         if (this.isEmpty()) {
@@ -1044,6 +1066,7 @@ class StackInstance {
         this.targetVal = val;
         return val;
     }
+    Pop() { return this.pop(); }
 
     top() {
         if (this.isEmpty()) {
@@ -1053,10 +1076,19 @@ class StackInstance {
         this.targetVal = this.items[this.items.length - 1];
         return this.targetVal;
     }
+    Top() { return this.top(); }
+    peek() { return this.top(); }
+    Peek() { return this.top(); }
 
     isEmpty() {
         return this.items.length === 0;
     }
+    IsEmpty() { return this.isEmpty(); }
+
+    get Count() { return this.items.length; }
+    get count() { return this.items.length; }
+    get Length() { return this.items.length; }
+    get length() { return this.items.length; }
 
     clone(newName) {
         const clonedItems = this.items.map(it => {
@@ -1071,47 +1103,88 @@ class StackInstance {
     toString() {
         return `[Bottom -> ${this.items.join(', ')} -> Top]`;
     }
+    ToString() { return this.toString(); }
 }
+let _nodeIdCounter = 0;
+let _binNodeIdCounter = 0;
 
 /**
  * מודל מופע חוליה (Node<T>) לפי תקן משרד החינוך
  */
 class NodeInstance {
     constructor(info, next = null) {
-        this.info = info;
-        this.next = next;
+        this.id = 'node_' + (++_nodeIdCounter);
+        this._info = info;
+        this._next = next;
     }
 
-    getInfo() { return this.info; }
-    GetInfo() { return this.info; }
-    setInfo(v) { this.info = v; }
-    SetInfo(v) { this.info = v; }
-    getNext() { return this.next; }
-    GetNext() { return this.next; }
-    setNext(n) { this.next = n; }
-    SetNext(n) { this.next = n; }
-    hasNext() { return this.next !== null; }
-    HasNext() { return this.next !== null; }
+    get info() { return this._info; }
+    set info(v) { this._info = v; }
+    get Info() { return this._info; }
+    set Info(v) { this._info = v; }
+    get value() { return this._info; }
+    set value(v) { this._info = v; }
+    get Value() { return this._info; }
+    set Value(v) { this._info = v; }
+
+    get next() { return this._next; }
+    set next(n) { this._next = n; }
+    get Next() { return this._next; }
+    set Next(n) { this._next = n; }
+
+    getInfo() { return this._info; }
+    GetInfo() { return this._info; }
+    setInfo(v) { this._info = v; }
+    SetInfo(v) { this._info = v; }
+    getValue() { return this._info; }
+    GetValue() { return this._info; }
+    setValue(v) { this._info = v; }
+    SetValue(v) { this._info = v; }
+
+    getNext() { return this._next; }
+    GetNext() { return this._next; }
+    setNext(n) { this._next = n; }
+    SetNext(n) { this._next = n; }
+    hasNext() { return this._next !== null; }
+    HasNext() { return this._next !== null; }
 
     clone() {
-        return new NodeInstance(this.info, this.next ? this.next.clone() : null);
+        const copy = new NodeInstance(this._info, this._next ? this._next.clone() : null);
+        copy.id = this.id;
+        return copy;
     }
 
     toString() {
         const items = [];
         let curr = this;
         let count = 0;
+        const seen = new Set();
         while (curr && count < 50) {
-            items.push(curr.info);
-            curr = curr.next;
+            if (seen.has(curr)) {
+                items.push(`(מעגל לחוליה ${curr.id})`);
+                break;
+            }
+            seen.add(curr);
+            items.push(curr._info);
+            curr = curr._next;
             count++;
         }
-        return items.join(' -> ') + ' -> null';
+        return items.join(' -> ') + (curr ? '' : ' -> null');
     }
     ToString() { return this.toString(); }
 }
 
-function buildNodeChain(arr) {
+function buildNodeChain(input) {
+    if (!input) return null;
+    let arr = input;
+    if (typeof input === 'string') {
+        const clean = input.replace(/\s*->\s*null\s*$/i, '').trim();
+        const delimiter = clean.includes('->') ? /\s*->\s*/ : /[,;\s]+/;
+        arr = clean.split(delimiter).map(s => s.trim()).filter(Boolean).map(s => {
+            const n = Number(s);
+            return isNaN(n) ? s : n;
+        });
+    }
     if (!Array.isArray(arr) || arr.length === 0) return null;
     let head = null;
     let tail = null;
@@ -1128,36 +1201,65 @@ function buildNodeChain(arr) {
  */
 class BinNodeInstance {
     constructor(value, left = null, right = null) {
-        this.value = value;
-        this.left = left;
-        this.right = right;
+        this.id = 'bin_' + (++_binNodeIdCounter);
+        this._value = value;
+        this._left = left;
+        this._right = right;
     }
 
-    getValue() { return this.value; }
-    GetValue() { return this.value; }
-    setValue(v) { this.value = v; }
-    SetValue(v) { this.value = v; }
-    getLeft() { return this.left; }
-    GetLeft() { return this.left; }
-    setLeft(l) { this.left = l; }
-    SetLeft(l) { this.left = l; }
-    getRight() { return this.right; }
-    GetRight() { return this.right; }
-    setRight(r) { this.right = r; }
-    SetRight(r) { this.right = r; }
-    hasLeft() { return this.left !== null; }
-    HasLeft() { return this.left !== null; }
-    hasRight() { return this.right !== null; }
-    HasRight() { return this.right !== null; }
-    isLeaf() { return this.left === null && this.right === null; }
-    IsLeaf() { return this.left === null && this.right === null; }
+    get value() { return this._value; }
+    set value(v) { this._value = v; }
+    get Value() { return this._value; }
+    set Value(v) { this._value = v; }
+    get info() { return this._value; }
+    set info(v) { this._value = v; }
+    get Info() { return this._value; }
+    set Info(v) { this._value = v; }
+
+    get left() { return this._left; }
+    set left(l) { this._left = l; }
+    get Left() { return this._left; }
+    set Left(l) { this._left = l; }
+
+    get right() { return this._right; }
+    set right(r) { this._right = r; }
+    get Right() { return this._right; }
+    set Right(r) { this._right = r; }
+
+    getValue() { return this._value; }
+    GetValue() { return this._value; }
+    setValue(v) { this._value = v; }
+    SetValue(v) { this._value = v; }
+    getInfo() { return this._value; }
+    GetInfo() { return this._value; }
+    setInfo(v) { this._value = v; }
+    SetInfo(v) { this._value = v; }
+
+    getLeft() { return this._left; }
+    GetLeft() { return this._left; }
+    setLeft(l) { this._left = l; }
+    SetLeft(l) { this._left = l; }
+
+    getRight() { return this._right; }
+    GetRight() { return this._right; }
+    setRight(r) { this._right = r; }
+    SetRight(r) { this._right = r; }
+
+    hasLeft() { return this._left !== null; }
+    HasLeft() { return this._left !== null; }
+    hasRight() { return this._right !== null; }
+    HasRight() { return this._right !== null; }
+    isLeaf() { return this._left === null && this._right === null; }
+    IsLeaf() { return this._left === null && this._right === null; }
 
     clone() {
-        return new BinNodeInstance(this.value, this.left ? this.left.clone() : null, this.right ? this.right.clone() : null);
+        const copy = new BinNodeInstance(this._value, this._left ? this._left.clone() : null, this._right ? this._right.clone() : null);
+        copy.id = this.id;
+        return copy;
     }
 
-    toString() { return String(this.value); }
-    ToString() { return String(this.value); }
+    toString() { return String(this._value); }
+    ToString() { return String(this._value); }
 }
 
 function normalizeBinTreePath(rawPath) {
@@ -1539,6 +1641,10 @@ class RuntimeEnvironment {
             this.functions.set(fn.name, fn);
         }
 
+        // מעקב אחר משתני חוליות ועצים לצורך תצוגה בבמה
+        this.knownNodeVars = new Set();
+        this.knownBinNodeVars = new Set();
+
         // מחסנית קריאות
         this.callStack = [];
 
@@ -1627,9 +1733,11 @@ class RuntimeEnvironment {
                         this.initialStackSnapshot = this.snapshotItems(stackInst.items);
                     }
                 } else if (param.type.startsWith('Node')) {
-                    const chainInst = buildNodeChain(Array.isArray(rawVal) ? rawVal : (rawVal !== undefined && rawVal !== null ? [rawVal] : [12, 5, 8, 20]));
+                    this.knownNodeVars.add(param.name);
+                    const chainInst = buildNodeChain(rawVal !== undefined && rawVal !== null ? rawVal : [12, 5, 8, 20]);
                     initialArgs.push(chainInst);
                 } else if (param.type.startsWith('BinNode')) {
+                    this.knownBinNodeVars.add(param.name);
                     const treeInst = buildBinTree(rawVal !== undefined && rawVal !== null ? rawVal : [10, 5, 15, 3, 7]);
                     initialArgs.push(treeInst);
                 } else {
@@ -2030,6 +2138,12 @@ class RuntimeEnvironment {
             if (argVal instanceof StackInstance) {
                 this.stacks.set(param.name, argVal);
             }
+            if (argVal instanceof NodeInstance || (param.type && param.type.startsWith('Node'))) {
+                this.knownNodeVars.add(param.name);
+            }
+            if (argVal instanceof BinNodeInstance || (param.type && param.type.startsWith('BinNode'))) {
+                this.knownBinNodeVars.add(param.name);
+            }
         }
 
         const prevFile = this.currentFile;
@@ -2055,8 +2169,8 @@ class RuntimeEnvironment {
                 }
             }
         } finally {
-            this.callStack.pop();
             this.recordFrame(fn.line, `סיום פונקציה ${fn.name}${returnVal !== undefined ? `, הוחזר: ${this.formatVal(returnVal)}` : ''}`);
+            this.callStack.pop();
             this.currentFile = prevFile;
         }
 
@@ -2109,6 +2223,12 @@ class RuntimeEnvironment {
                     scope.set(stmt.varName, val);
                     this.recordFrame(stmt.line, `אתחול ויצירת מחסנית חדשה בחלון: ${stmt.varName} = new ${stmt.varType || 'Stack'}()`, 'idle', false, null, null, null, stmt.varName);
                 } else {
+                    if (stmt.varType && (stmt.varType.startsWith('Node') || (val instanceof NodeInstance))) {
+                        this.knownNodeVars.add(stmt.varName);
+                    }
+                    if (stmt.varType && (stmt.varType.startsWith('BinNode') || (val instanceof BinNodeInstance))) {
+                        this.knownBinNodeVars.add(stmt.varName);
+                    }
                     scope.set(stmt.varName, val);
                     this.recordFrame(stmt.line, `הצהרה על משתנה ${stmt.varName} = ${this.formatVal(val)}`);
                 }
@@ -2293,10 +2413,29 @@ class RuntimeEnvironment {
 
                     return obj.fields[expr.property] !== undefined ? obj.fields[expr.property] : 0;
                 }
+                const propLower = (expr.property || '').toLowerCase();
                 if (obj instanceof QueueInstance) {
-                    if (expr.property === 'Count' || expr.property === 'Length') {
-                        return obj.items.length;
-                    }
+                    if (propLower === 'count' || propLower === 'length') return obj.items.length;
+                    if (propLower === 'isempty') return obj.isEmpty();
+                    if (propLower === 'head' || propLower === 'peek' || propLower === 'front') return obj.head();
+                }
+                if (obj instanceof StackInstance) {
+                    if (propLower === 'count' || propLower === 'length') return obj.items.length;
+                    if (propLower === 'isempty') return obj.isEmpty();
+                    if (propLower === 'top' || propLower === 'peek') return obj.top();
+                }
+                if (obj instanceof NodeInstance) {
+                    if (propLower === 'info' || propLower === 'value') return obj.info;
+                    if (propLower === 'next') return obj.next;
+                    if (propLower === 'hasnext') return obj.hasNext();
+                }
+                if (obj instanceof BinNodeInstance) {
+                    if (propLower === 'value' || propLower === 'info') return obj.value;
+                    if (propLower === 'left') return obj.left;
+                    if (propLower === 'right') return obj.right;
+                    if (propLower === 'hasleft') return obj.hasLeft();
+                    if (propLower === 'hasright') return obj.hasRight();
+                    if (propLower === 'isleaf') return obj.isLeaf();
                 }
                 return obj[expr.property];
             }
@@ -2758,14 +2897,15 @@ class RuntimeEnvironment {
                     return this.formatVal(obj);
                 }
 
+                const mLower = (expr.method || '').toLowerCase();
+
                 if (obj instanceof QueueInstance) {
-                    const methodName = expr.method;
-                    if (methodName === 'Insert') {
+                    if (mLower === 'insert' || mLower === 'enqueue' || mLower === 'add') {
                         const insertVal = this.evaluateExpression(expr.arguments[0], scope);
                         obj.insert(insertVal);
                         this.recordFrame(expr.line, `פעולת ${obj.name}.Insert(${this.formatVal(insertVal)}): הכנסת ${this.formatVal(insertVal)} לסוף התור`, 'insert', false, null, obj.name, insertVal);
                         return null;
-                    } else if (methodName === 'Remove') {
+                    } else if (mLower === 'remove' || mLower === 'dequeue') {
                         try {
                             const removedVal = obj.remove();
                             this.recordFrame(expr.line, `פעולת ${obj.name}.Remove(): הוצאת ${this.formatVal(removedVal)} מראש התור`, 'remove', false, null, obj.name, removedVal);
@@ -2773,7 +2913,7 @@ class RuntimeEnvironment {
                         } catch (err) {
                             throw { line: expr.line, message: err.message };
                         }
-                    } else if (methodName === 'Head') {
+                    } else if (mLower === 'head' || mLower === 'peek' || mLower === 'front') {
                         try {
                             const headVal = obj.head();
                             this.recordFrame(expr.line, `פעולת ${obj.name}.Head(): הצצה בראש התור (${this.formatVal(headVal)}) ללא שינוי`, 'head', false, null, obj.name, headVal);
@@ -2781,23 +2921,24 @@ class RuntimeEnvironment {
                         } catch (err) {
                             throw { line: expr.line, message: err.message };
                         }
-                    } else if (methodName === 'IsEmpty') {
+                    } else if (mLower === 'isempty') {
                         const isEmpty = obj.isEmpty();
                         this.recordFrame(expr.line, `פעולת ${obj.name}.IsEmpty(): בדיקה האם ריק -> ${isEmpty ? 'אמת (true)' : 'שקר (false)'}`);
                         return isEmpty;
+                    } else if (mLower === 'tostring') {
+                        return obj.toString();
                     } else {
-                        throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' בתור` };
+                        throw { line: expr.line, message: `פעולה לא מוכרת '${expr.method}' בתור (לפי תקן משרד החינוך הפעולות הן: Insert, Remove, Head, IsEmpty)` };
                     }
                 }
 
                 if (obj instanceof StackInstance) {
-                    const methodName = expr.method;
-                    if (methodName === 'Push') {
+                    if (mLower === 'push' || mLower === 'insert' || mLower === 'add') {
                         const pushVal = this.evaluateExpression(expr.arguments[0], scope);
                         obj.push(pushVal);
                         this.recordFrame(expr.line, `פעולת ${obj.name}.Push(${this.formatVal(pushVal)}): דחיפת ${this.formatVal(pushVal)} לראש המחסנית`, 'push', false, null, null, pushVal, obj.name);
                         return null;
-                    } else if (methodName === 'Pop') {
+                    } else if (mLower === 'pop' || mLower === 'remove') {
                         try {
                             const poppedVal = obj.pop();
                             this.recordFrame(expr.line, `פעולת ${obj.name}.Pop(): שליפת ${this.formatVal(poppedVal)} מראש המחסנית`, 'pop', false, null, null, poppedVal, obj.name);
@@ -2805,7 +2946,7 @@ class RuntimeEnvironment {
                         } catch (err) {
                             throw { line: expr.line, message: err.message };
                         }
-                    } else if (methodName === 'Top') {
+                    } else if (mLower === 'top' || mLower === 'peek') {
                         try {
                             const topVal = obj.top();
                             this.recordFrame(expr.line, `פעולת ${obj.name}.Top(): הצצה בראש המחסנית (${this.formatVal(topVal)}) ללא שינוי`, 'top', false, null, null, topVal, obj.name);
@@ -2813,55 +2954,66 @@ class RuntimeEnvironment {
                         } catch (err) {
                             throw { line: expr.line, message: err.message };
                         }
-                    } else if (methodName === 'IsEmpty') {
+                    } else if (mLower === 'isempty') {
                         const isEmpty = obj.isEmpty();
                         this.recordFrame(expr.line, `פעולת ${obj.name}.IsEmpty(): בדיקת ריקנות -> ${isEmpty ? 'אמת (true)' : 'שקר (false)'}`, 'idle', false, null, null, null, obj.name);
                         return isEmpty;
+                    } else if (mLower === 'tostring') {
+                        return obj.toString();
                     } else {
-                        throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' במחסנית (לפי תקן משרד החינוך הפעולות הן: Push, Pop, Top, IsEmpty)` };
+                        throw { line: expr.line, message: `פעולה לא מוכרת '${expr.method}' במחסנית (לפי תקן משרד החינוך הפעולות הן: Push, Pop, Top, IsEmpty)` };
                     }
                 } else if (obj instanceof NodeInstance) {
-                    const methodName = expr.method;
-                    if (methodName === 'GetInfo') return obj.getInfo();
-                    if (methodName === 'SetInfo') {
+                    if (mLower === 'getinfo' || mLower === 'getvalue' || mLower === 'info' || mLower === 'value') {
+                        return obj.getInfo();
+                    }
+                    if (mLower === 'setinfo' || mLower === 'setvalue') {
                         const val = this.evaluateExpression(expr.arguments[0], scope);
                         obj.setInfo(val);
+                        this.recordFrame(expr.line, `פעולת SetInfo(${this.formatVal(val)}) בחוליה`);
                         return null;
                     }
-                    if (methodName === 'GetNext') return obj.getNext();
-                    if (methodName === 'SetNext') {
+                    if (mLower === 'getnext' || mLower === 'next') {
+                        return obj.getNext();
+                    }
+                    if (mLower === 'setnext') {
                         const nextObj = this.evaluateExpression(expr.arguments[0], scope);
                         obj.setNext(nextObj);
+                        this.recordFrame(expr.line, `פעולת SetNext() בחוליה`);
                         return null;
                     }
-                    if (methodName === 'HasNext') return obj.hasNext();
-                    if (methodName === 'ToString') return obj.toString();
-                    throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' בחוליה Node` };
+                    if (mLower === 'hasnext') return obj.hasNext();
+                    if (mLower === 'tostring') return obj.toString();
+                    throw { line: expr.line, message: `פעולה לא מוכרת '${expr.method}' בחוליה Node (לפי תקן משרד החינוך: GetInfo, SetInfo, GetNext, SetNext, HasNext)` };
                 } else if (obj instanceof BinNodeInstance) {
-                    const methodName = expr.method;
-                    if (methodName === 'GetValue') return obj.getValue();
-                    if (methodName === 'SetValue') {
+                    if (mLower === 'getvalue' || mLower === 'getinfo' || mLower === 'value' || mLower === 'info') {
+                        return obj.getValue();
+                    }
+                    if (mLower === 'setvalue' || mLower === 'setinfo') {
                         const val = this.evaluateExpression(expr.arguments[0], scope);
                         obj.setValue(val);
+                        this.recordFrame(expr.line, `פעולת SetValue(${this.formatVal(val)}) בעץ`);
                         return null;
                     }
-                    if (methodName === 'GetLeft') return obj.getLeft();
-                    if (methodName === 'SetLeft') {
+                    if (mLower === 'getleft' || mLower === 'left') return obj.getLeft();
+                    if (mLower === 'setleft') {
                         const sub = this.evaluateExpression(expr.arguments[0], scope);
                         obj.setLeft(sub);
+                        this.recordFrame(expr.line, `פעולת SetLeft() בעץ`);
                         return null;
                     }
-                    if (methodName === 'GetRight') return obj.getRight();
-                    if (methodName === 'SetRight') {
+                    if (mLower === 'getright' || mLower === 'right') return obj.getRight();
+                    if (mLower === 'setright') {
                         const sub = this.evaluateExpression(expr.arguments[0], scope);
                         obj.setRight(sub);
+                        this.recordFrame(expr.line, `פעולת SetRight() בעץ`);
                         return null;
                     }
-                    if (methodName === 'HasLeft') return obj.hasLeft();
-                    if (methodName === 'HasRight') return obj.hasRight();
-                    if (methodName === 'IsLeaf') return obj.isLeaf();
-                    if (methodName === 'ToString') return obj.toString();
-                    throw { line: expr.line, message: `פעולה לא מוכרת '${methodName}' בעץ בינארי BinNode` };
+                    if (mLower === 'hasleft') return obj.hasLeft();
+                    if (mLower === 'hasright') return obj.hasRight();
+                    if (mLower === 'isleaf') return obj.isLeaf();
+                    if (mLower === 'tostring') return obj.toString();
+                    throw { line: expr.line, message: `פעולה לא מוכרת '${expr.method}' בעץ בינארי BinNode (לפי תקן משרד החינוך: GetValue, SetValue, GetLeft, SetLeft, GetRight, SetRight, HasLeft, HasRight, IsLeaf)` };
                 } else {
                     const targetObjName = expr.object && expr.object.name ? `'${expr.object.name}'` : 'האובייקט';
                     throw { line: expr.line, message: `${targetObjName} אינו תור, מחסנית או אובייקט מאותחל` };
@@ -3015,6 +3167,205 @@ class RuntimeEnvironment {
             ? callStackSnapshot[callStackSnapshot.length - 1].variables
             : {};
 
+        // שכפול מצב חוליות (Node<T>) ומעקב אחר מצביעים ומבנים
+        const nodeVars = new Map(); // varName -> NodeInstance or null
+        for (const frame of this.callStack) {
+            frame.scope.forEach((v, k) => {
+                if (v instanceof NodeInstance) {
+                    nodeVars.set(k, v);
+                } else if (v === null && this.knownNodeVars && this.knownNodeVars.has(k)) {
+                    nodeVars.set(k, null);
+                }
+            });
+        }
+
+        const nodesSnapshot = [];
+        if (nodeVars.size > 0) {
+            const allNodesMap = new Map(); // id -> { id, value, displayValue, nextId, pointers: [] }
+            const nullPointers = [];
+
+            nodeVars.forEach((nodeInst, varName) => {
+                if (!nodeInst) {
+                    nullPointers.push(varName);
+                    return;
+                }
+                let curr = nodeInst;
+                let count = 0;
+                const seen = new Set();
+                while (curr && count < 100) {
+                    if (seen.has(curr.id)) break;
+                    seen.add(curr.id);
+                    if (!allNodesMap.has(curr.id)) {
+                        allNodesMap.set(curr.id, {
+                            id: curr.id,
+                            value: (curr.info !== null && curr.info !== undefined) ? curr.info : 0,
+                            displayValue: this.formatVal(curr.info),
+                            nextId: (curr.next && curr.next instanceof NodeInstance) ? curr.next.id : null,
+                            pointers: []
+                        });
+                    }
+                    curr = curr.next;
+                    count++;
+                }
+            });
+
+            // צימוד מצביעי משתנים לחוליות המתאימות
+            nodeVars.forEach((nodeInst, varName) => {
+                if (nodeInst && allNodesMap.has(nodeInst.id)) {
+                    if (!allNodesMap.get(nodeInst.id).pointers.includes(varName)) {
+                        allNodesMap.get(nodeInst.id).pointers.push(varName);
+                    }
+                }
+            });
+
+            // מציאת ראשי שרשראות (צמתים שאף חוליה אחרת אינה מצביעה עליהם, או ראשי משתנים)
+            const targetIds = new Set();
+            allNodesMap.forEach(n => {
+                if (n.nextId) targetIds.add(n.nextId);
+            });
+
+            const headIds = [];
+            allNodesMap.forEach((n, id) => {
+                if (!targetIds.has(id)) headIds.push(id);
+            });
+            if (headIds.length === 0) {
+                allNodesMap.forEach((n, id) => {
+                    if (n.pointers.length > 0) headIds.push(id);
+                });
+            }
+            if (headIds.length === 0 && allNodesMap.size > 0) {
+                headIds.push(allNodesMap.keys().next().value);
+            }
+
+            const processedIds = new Set();
+            headIds.forEach(hId => {
+                const chainNodes = [];
+                let currId = hId;
+                let cCount = 0;
+                while (currId && allNodesMap.has(currId) && cCount < 100) {
+                    const nodeData = allNodesMap.get(currId);
+                    chainNodes.push({
+                        id: nodeData.id,
+                        value: nodeData.value,
+                        displayValue: nodeData.displayValue,
+                        nextId: nodeData.nextId,
+                        pointers: [...nodeData.pointers]
+                    });
+                    processedIds.add(currId);
+                    currId = nodeData.nextId;
+                    if (chainNodes.some((cn, idx) => idx < chainNodes.length - 1 && cn.id === currId)) break; // מעגל
+                    cCount++;
+                }
+                if (chainNodes.length > 0) {
+                    nodesSnapshot.push({
+                        headId: hId,
+                        nodes: chainNodes,
+                        nullPointers: [...nullPointers]
+                    });
+                }
+            });
+
+            // חוליות מבודדות שנותרו
+            allNodesMap.forEach((n, id) => {
+                if (!processedIds.has(id)) {
+                    nodesSnapshot.push({
+                        headId: id,
+                        nodes: [{
+                            id: n.id,
+                            value: n.value,
+                            displayValue: n.displayValue,
+                            nextId: n.nextId,
+                            pointers: [...n.pointers]
+                        }],
+                        nullPointers: []
+                    });
+                }
+            });
+        }
+
+        // שכפול מצב עצי בינארי (BinNode<T>)
+        const treeVars = new Map(); // varName -> BinNodeInstance or null
+        for (const frame of this.callStack) {
+            frame.scope.forEach((v, k) => {
+                if (v instanceof BinNodeInstance) {
+                    treeVars.set(k, v);
+                } else if (v === null && this.knownBinNodeVars && this.knownBinNodeVars.has(k)) {
+                    treeVars.set(k, null);
+                }
+            });
+        }
+
+        const treesSnapshot = [];
+        if (treeVars.size > 0) {
+            const serializeBinNode = (node, visited = new Set()) => {
+                if (!node || !(node instanceof BinNodeInstance)) return null;
+                if (visited.has(node.id)) {
+                    return { id: node.id, value: node.value, displayValue: this.formatVal(node.value), isCycle: true, pointers: [] };
+                }
+                visited.add(node.id);
+
+                const pointers = [];
+                treeVars.forEach((tv, tName) => {
+                    if (tv && tv.id === node.id) {
+                        pointers.push(tName);
+                    }
+                });
+
+                return {
+                    id: node.id,
+                    value: (node.value !== null && node.value !== undefined) ? node.value : 0,
+                    displayValue: this.formatVal(node.value),
+                    pointers,
+                    left: serializeBinNode(node.left, visited),
+                    right: serializeBinNode(node.right, visited)
+                };
+            };
+
+            treeVars.forEach((treeInst, varName) => {
+                if (treeInst instanceof BinNodeInstance) {
+                    // בדיקה אם הצומת הוא כבר תת-עץ של עץ שנרשם
+                    let alreadyChild = false;
+                    for (const existing of treesSnapshot) {
+                        const hasId = existing.allIds && (existing.allIds.has ? existing.allIds.has(treeInst.id) : existing.allIds.includes(treeInst.id));
+                        if (hasId) {
+                            alreadyChild = true;
+                            break;
+                        }
+                    }
+                    if (!alreadyChild) {
+                        const allIds = new Set();
+                        const collectIds = (n) => {
+                            if (!n) return;
+                            allIds.add(n.id);
+                            collectIds(n.left);
+                            collectIds(n.right);
+                        };
+                        collectIds(treeInst);
+                        const treeData = serializeBinNode(treeInst);
+                        treesSnapshot.push({
+                            rootVar: varName,
+                            tree: treeData,
+                            allIds: allIds
+                        });
+                    }
+                }
+            });
+        }
+
+        // אם בצעד זה מחסנית הקריאות התרוקנה (סיום פונקציה/תוכנית), נשמר את תמונת המצב האחרונה של החוליות והעצים
+        if (nodesSnapshot.length === 0 && this.frames.length > 0) {
+            const prev = this.frames[this.frames.length - 1];
+            if (prev && prev.nodes && prev.nodes.length > 0) {
+                nodesSnapshot.push(...prev.nodes);
+            }
+        }
+        if (treesSnapshot.length === 0 && this.frames.length > 0) {
+            const prev = this.frames[this.frames.length - 1];
+            if (prev && prev.trees && prev.trees.length > 0) {
+                treesSnapshot.push(...prev.trees);
+            }
+        }
+
         this.frames.push({
             step: this.frames.length,
             line,
@@ -3023,6 +3374,8 @@ class RuntimeEnvironment {
             callStack: callStackSnapshot,
             queues: queuesSnapshot,
             stacks: stacksSnapshot,
+            nodes: nodesSnapshot,
+            trees: treesSnapshot,
             variables: activeVariables,
             consoleOutputs: [...this.consoleOutputs],
             error: null,

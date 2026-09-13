@@ -328,8 +328,8 @@ public class Program
                     'Program.cs': { name: 'Program.cs', isMain: true, canDelete: false, code }
                 },
                 activeFileName: 'Program.cs',
-                initialParams: { root: [10, 5, 15, 3, 7] },
-                initialQueue: [10, 5, 15, 3, 7],
+                initialParams: { root: 'root: 50, L: 20, R: 70, LR: 30' },
+                initialQueue: [50, 20, 70, 30],
                 initialQueueType: 'int'
             };
         } else {
@@ -1711,7 +1711,9 @@ public class Program
             return subQueues;
         }
 
-        const rawItems = raw.split(',').map(s => s.trim()).filter(Boolean);
+        let normalizedRaw = raw.replace(/\s*->\s*null\s*$/i, '').trim();
+        const splitPattern = normalizedRaw.includes('->') ? /\s*->\s*/ : /,/;
+        const rawItems = normalizedRaw.split(splitPattern).map(s => s.trim()).filter(Boolean);
         if (rawItems.length === 0) return [];
 
         if (targetType === 'int') {
@@ -2048,11 +2050,11 @@ public class Program
         try {
             inputs.forEach(input => {
                 const name = input.dataset.paramName;
-                const isQueue = input.dataset.isQueue === 'true';
-                const isStack = input.dataset.isStack === 'true';
-                const isNode = input.dataset.isNode === 'true';
-                const isBinNode = input.dataset.isBinNode === 'true';
                 const pType = input.dataset.paramType || '';
+                const isQueue = input.dataset.isQueue === 'true' || (pType && pType.startsWith('Queue'));
+                const isStack = input.dataset.isStack === 'true' || (pType && pType.startsWith('Stack'));
+                const isNode = input.dataset.isNode === 'true' || input.getAttribute('data-is-node') === 'true' || (pType && pType.startsWith('Node'));
+                const isBinNode = input.dataset.isBinNode === 'true' || input.dataset.isBinnode === 'true' || input.getAttribute('data-is-binnode') === 'true' || (pType && pType.startsWith('BinNode'));
 
                 if (isQueue) {
                     const match = pType.match(/^Queue<(.+)>$/);
@@ -2104,6 +2106,10 @@ public class Program
                     this.initialParams[name] = val;
                 }
             });
+
+            if (this.modeEditorState && this.modeEditorState[this.studioMode]) {
+                this.modeEditorState[this.studioMode].initialParams = JSON.parse(JSON.stringify(this.initialParams));
+            }
 
             this.recompile();
         } catch (err) {
@@ -2432,6 +2438,9 @@ public class Program
                         `;
 
                         const inputEl = card.querySelector('.param-input');
+                        inputEl.addEventListener('change', () => {
+                            this.updateQueueFromInput();
+                        });
                         inputEl.addEventListener('keydown', (e) => {
                             if (e.key === 'Enter') {
                                 this.updateQueueFromInput();
@@ -2778,6 +2787,9 @@ public class Program
 
                         inputEl.addEventListener('change', () => {
                             this.initialParams[param.name] = inputEl.value.trim();
+                            if (this.modeEditorState && this.modeEditorState[this.studioMode]) {
+                                this.modeEditorState[this.studioMode].initialParams[param.name] = this.initialParams[param.name];
+                            }
                             this.recompile();
                             refreshVisualTree();
                         });
@@ -3014,14 +3026,26 @@ public class Program
 
         const queues = frame.queues || [];
         const stacks = frame.stacks || [];
+        const nodes = frame.nodes || [];
+        const trees = frame.trees || [];
 
-        const hasVisibleQueues = queues.length > 0 && this.studioMode !== 'stack';
-        const hasVisibleStacks = stacks.length > 0 && this.studioMode !== 'queue';
+        let hasVisibleQueues = queues.length > 0 && (this.studioMode === 'queue' || (this.studioMode !== 'stack' && this.studioMode !== 'node' && this.studioMode !== 'binnode'));
+        let hasVisibleStacks = stacks.length > 0 && (this.studioMode === 'stack' || (this.studioMode !== 'queue' && this.studioMode !== 'node' && this.studioMode !== 'binnode'));
+        let hasVisibleNodes = nodes.length > 0 && (this.studioMode === 'node' || (this.studioMode !== 'queue' && this.studioMode !== 'stack' && this.studioMode !== 'binnode'));
+        let hasVisibleTrees = trees.length > 0 && (this.studioMode === 'binnode' || (this.studioMode !== 'queue' && this.studioMode !== 'stack' && this.studioMode !== 'node'));
 
-        if (!hasVisibleQueues && !hasVisibleStacks) {
+        // גיבוי (Fallback): אם שום מבנה לא תואם למצב הספציפי אבל ישנם מבני נתונים קיימים, הצג אותם!
+        if (!hasVisibleQueues && !hasVisibleStacks && !hasVisibleNodes && !hasVisibleTrees) {
+            hasVisibleQueues = queues.length > 0;
+            hasVisibleStacks = stacks.length > 0;
+            hasVisibleNodes = nodes.length > 0;
+            hasVisibleTrees = trees.length > 0;
+        }
+
+        if (!hasVisibleQueues && !hasVisibleStacks && !hasVisibleNodes && !hasVisibleTrees) {
             let emptyIcon = '📦';
             let emptyTitle = 'אין מבני נתונים פעילים כעת בחלון';
-            let emptyDesc = 'תורים ומחסניות שייווצרו בעת הרצת הקוד (או מועברים כפרמטרים ל-Main) יוצגו כאן אוטומטית.';
+            let emptyDesc = 'מבני נתונים שייווצרו בעת הרצת הקוד (או מועברים כפרמטרים ל-Main) יוצגו כאן אוטומטית.';
 
             if (this.studioMode === 'stack') {
                 emptyIcon = '🥞';
@@ -3031,6 +3055,14 @@ public class Program
                 emptyIcon = '🔄';
                 emptyTitle = 'אין תורים פעילים כעת בחלון';
                 emptyDesc = 'תורים חדשים יוצגו כאן בעת הרצת <code>new Queue&lt;T&gt;()</code> או כאשר פעולת <code>Main</code> מקבלת תור כפרמטר.';
+            } else if (this.studioMode === 'node') {
+                emptyIcon = '🔗';
+                emptyTitle = 'אין שרשראות חוליות פעילות כעת בחלון';
+                emptyDesc = 'חוליות חדשות יוצגו כאן בעת הרצת <code>new Node&lt;T&gt;()</code> או כאשר פעולת <code>Main</code> מקבלת חוליה כפרמטר.';
+            } else if (this.studioMode === 'binnode') {
+                emptyIcon = '🌳';
+                emptyTitle = 'אין עץ בינארי פעיל כעת בחלון';
+                emptyDesc = 'עצים חדשים יוצגו כאן בעת הרצת <code>new BinNode&lt;T&gt;()</code> או כאשר פעולת <code>Main</code> מקבלת עץ כפרמטר.';
             }
 
             this.dom.queuesStage.innerHTML = `
@@ -3044,13 +3076,23 @@ public class Program
         }
 
         // רינדור תורים
-        if (queues.length > 0) {
+        if (hasVisibleQueues) {
             this.renderQueues(queues, frame);
         }
 
         // רינדור מחסניות
-        if (stacks.length > 0) {
+        if (hasVisibleStacks) {
             this.renderStacks(stacks, frame);
+        }
+
+        // רינדור חוליות (Node<T>)
+        if (hasVisibleNodes) {
+            this.renderNodeChains(nodes, frame);
+        }
+
+        // רינדור עץ בינארי (BinNode<T>)
+        if (hasVisibleTrees) {
+            this.renderBinTrees(trees, frame);
         }
     }
 
@@ -3328,6 +3370,307 @@ public class Program
             }
 
             this.dom.queuesStage.appendChild(stackCard);
+        });
+    }
+
+    renderNodeChains(nodes, frame) {
+        if (!nodes || nodes.length === 0) return;
+
+        nodes.forEach((chain, cIdx) => {
+            const chainCard = document.createElement('div');
+            chainCard.className = 'node-chain-card';
+
+            const totalNodes = chain.nodes ? chain.nodes.length : 0;
+            const headPointers = (chain.nodes && chain.nodes.length > 0 && chain.nodes[0].pointers) ? chain.nodes[0].pointers : [];
+            const headTitle = headPointers.length > 0 ? headPointers.join(', ') : `שרשרת #${cIdx + 1}`;
+
+            chainCard.innerHTML = `
+                <div class="node-chain-header">
+                    <div class="node-chain-title-box">
+                        <span class="node-chain-icon">🔗</span>
+                        <span class="node-chain-title">שרשרת חוליות: <strong>${this.escapeHtml(headTitle)}</strong></span>
+                        <span class="node-chain-badge">Node&lt;T&gt;</span>
+                    </div>
+                    <div class="node-count-badge">כמות חוליות: <strong>${totalNodes}</strong></div>
+                </div>
+                <div class="node-chain-track">
+                    <div class="node-chain-flow" id="chain-flow-${cIdx}"></div>
+                </div>
+            `;
+
+            const flowContainer = chainCard.querySelector(`#chain-flow-${cIdx}`);
+
+            if (totalNodes === 0) {
+                flowContainer.innerHTML = '<div class="node-empty-msg">[ שרשרת ריקה (null) ]</div>';
+            } else {
+                chain.nodes.forEach((nodeItem, nIdx) => {
+                    const nodeWrapper = document.createElement('div');
+                    nodeWrapper.className = 'node-item-wrapper';
+                    nodeWrapper.dataset.nodeId = nodeItem.id;
+
+                    const pointersHtml = (nodeItem.pointers && nodeItem.pointers.length > 0)
+                        ? nodeItem.pointers.map(p => `
+                            <div class="node-pointer-tag" title="המשתנה '${p}' מצביע כרגע על חוליה זו">
+                                <span class="pointer-hand">👇</span>
+                                <span class="pointer-var-name">${this.escapeHtml(p)}</span>
+                            </div>
+                        `).join('')
+                        : '';
+
+                    const isHead = nIdx === 0;
+
+                    nodeWrapper.innerHTML = `
+                        <div class="node-pointers-container">
+                            ${pointersHtml}
+                        </div>
+                        <div class="node-body-row">
+                            <div class="node-capsule ${isHead ? 'is-head-node' : ''}">
+                                <div class="node-info-compartment" title="ערך החוליה (Info / Value)">
+                                    <span class="node-info-val">${this.escapeHtml(nodeItem.displayValue !== undefined ? nodeItem.displayValue : nodeItem.value)}</span>
+                                </div>
+                                <div class="node-next-compartment" title="מצביע לחוליה הבאה (Next Pointer)">
+                                    <span class="next-dot">•</span>
+                                </div>
+                            </div>
+                            <div class="node-link-arrow" title="Next ➔">
+                                <span class="arrow-glyph">➔</span>
+                            </div>
+                        </div>
+                    `;
+
+                    flowContainer.appendChild(nodeWrapper);
+                });
+
+                // חוליית סיום null
+                const nullWrapper = document.createElement('div');
+                nullWrapper.className = 'node-item-wrapper node-null-wrapper';
+
+                const nullPointersHtml = (chain.nullPointers && chain.nullPointers.length > 0)
+                    ? chain.nullPointers.map(p => `
+                        <div class="node-pointer-tag pointer-null" title="המשתנה '${p}' מצביע על null">
+                            <span class="pointer-hand">👇</span>
+                            <span class="pointer-var-name">${this.escapeHtml(p)}</span>
+                        </div>
+                    `).join('')
+                    : '';
+
+                nullWrapper.innerHTML = `
+                    <div class="node-pointers-container">
+                        ${nullPointersHtml}
+                    </div>
+                    <div class="node-body-row">
+                        <div class="node-null-capsule" title="סוף השרשרת (null)">
+                            <span class="null-text">null</span>
+                            <span class="ground-symbol">⏚</span>
+                        </div>
+                    </div>
+                `;
+
+                flowContainer.appendChild(nullWrapper);
+            }
+
+            this.dom.queuesStage.appendChild(chainCard);
+        });
+    }
+
+    renderBinTrees(trees, frame) {
+        if (!trees || trees.length === 0) return;
+
+        trees.forEach((treeEntry, tIdx) => {
+            const rootVar = treeEntry.rootVar || 'root';
+            const rootNode = treeEntry.tree;
+            if (!rootNode) return;
+
+            const treeCard = document.createElement('div');
+            treeCard.className = 'bintree-card';
+
+            // 1. חישוב פריסה גיאומטרית של העץ ללא הצטלבויות (Inorder Layout)
+            let colCounter = 0;
+            let maxDepth = 0;
+            let totalNodes = 0;
+
+            const computeLayout = (node, depth) => {
+                if (!node) return;
+                maxDepth = Math.max(maxDepth, depth);
+                totalNodes++;
+                node.depth = depth;
+
+                if (node.left) computeLayout(node.left, depth + 1);
+                node.colIndex = colCounter++;
+                if (node.right) computeLayout(node.right, depth + 1);
+            };
+
+            computeLayout(rootNode, 0);
+
+            const colWidth = Math.max(68, Math.min(105, 780 / Math.max(1, totalNodes)));
+            const levelHeight = 85;
+            const svgWidth = Math.max(420, (colCounter + 1) * colWidth + 50);
+            const svgHeight = (maxDepth + 1) * levelHeight + 70;
+
+            // 2. חישוב קואורדינטות (x, y) לכל צומת
+            const assignCoords = (node) => {
+                if (!node) return;
+                node.x = (node.colIndex + 0.8) * colWidth + 20;
+                node.y = 55 + node.depth * levelHeight;
+                if (node.left) assignCoords(node.left);
+                if (node.right) assignCoords(node.right);
+            };
+
+            assignCoords(rootNode);
+
+            treeCard.innerHTML = `
+                <div class="bintree-header">
+                    <div class="bintree-title-box">
+                        <span class="bintree-icon">🌳</span>
+                        <span class="bintree-title">עץ בינארי: <strong>${this.escapeHtml(rootVar)}</strong></span>
+                        <span class="bintree-badge">BinNode&lt;T&gt;</span>
+                    </div>
+                    <div class="bintree-meta-box">
+                        <span class="bintree-meta-item">צמתים: <strong>${totalNodes}</strong></span>
+                        <span class="bintree-meta-item">עומק: <strong>${maxDepth}</strong></span>
+                    </div>
+                </div>
+                <div class="bintree-svg-viewport">
+                    <svg class="bintree-svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}">
+                        <defs>
+                            <linearGradient id="treeNodeGrad-${tIdx}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#0284c7" />
+                                <stop offset="100%" stop-color="#0f172a" />
+                            </linearGradient>
+                            <filter id="nodeGlow-${tIdx}" x="-20%" y="-20%" width="140%" height="140%">
+                                <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0284c7" flood-opacity="0.35" />
+                            </filter>
+                        </defs>
+                        <!-- שכבת ענפים (Edges) -->
+                        <g class="tree-edges-layer" id="edges-layer-${tIdx}"></g>
+                        <!-- שכבת צמתים (Nodes) -->
+                        <g class="tree-nodes-layer" id="nodes-layer-${tIdx}"></g>
+                    </svg>
+                </div>
+            `;
+
+            const edgesLayer = treeCard.querySelector(`#edges-layer-${tIdx}`);
+            const nodesLayer = treeCard.querySelector(`#nodes-layer-${tIdx}`);
+
+            // 3. ציור ענפים וצמתים ברקורסיה
+            const renderTreeSvg = (node) => {
+                if (!node) return;
+
+                // ענף שמאל
+                if (node.left) {
+                    const edgeL = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    edgeL.setAttribute('x1', node.x);
+                    edgeL.setAttribute('y1', node.y);
+                    edgeL.setAttribute('x2', node.left.x);
+                    edgeL.setAttribute('y2', node.left.y);
+                    edgeL.setAttribute('stroke', '#64748b');
+                    edgeL.setAttribute('stroke-width', '3');
+                    edgeL.setAttribute('stroke-linecap', 'round');
+                    edgesLayer.appendChild(edgeL);
+
+                    const midX = (node.x + node.left.x) / 2 - 10;
+                    const midY = (node.y + node.left.y) / 2;
+                    const lblL = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    lblL.setAttribute('x', midX);
+                    lblL.setAttribute('y', midY);
+                    lblL.setAttribute('fill', '#94a3b8');
+                    lblL.setAttribute('font-size', '11');
+                    lblL.setAttribute('font-weight', '600');
+                    lblL.textContent = 'L';
+                    edgesLayer.appendChild(lblL);
+
+                    renderTreeSvg(node.left);
+                }
+
+                // ענף ימין
+                if (node.right) {
+                    const edgeR = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    edgeR.setAttribute('x1', node.x);
+                    edgeR.setAttribute('y1', node.y);
+                    edgeR.setAttribute('x2', node.right.x);
+                    edgeR.setAttribute('y2', node.right.y);
+                    edgeR.setAttribute('stroke', '#64748b');
+                    edgeR.setAttribute('stroke-width', '3');
+                    edgeR.setAttribute('stroke-linecap', 'round');
+                    edgesLayer.appendChild(edgeR);
+
+                    const midX = (node.x + node.right.x) / 2 + 6;
+                    const midY = (node.y + node.right.y) / 2;
+                    const lblR = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    lblR.setAttribute('x', midX);
+                    lblR.setAttribute('y', midY);
+                    lblR.setAttribute('fill', '#94a3b8');
+                    lblR.setAttribute('font-size', '11');
+                    lblR.setAttribute('font-weight', '600');
+                    lblR.textContent = 'R';
+                    edgesLayer.appendChild(lblR);
+
+                    renderTreeSvg(node.right);
+                }
+
+                // קבוצת הצומת
+                const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                nodeGroup.setAttribute('class', 'bintree-node-group');
+                nodeGroup.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+
+                const hasPointers = node.pointers && node.pointers.length > 0;
+
+                // עיגול הצומת
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('r', '22');
+                circle.setAttribute('fill', `url(#treeNodeGrad-${tIdx})`);
+                circle.setAttribute('stroke', hasPointers ? '#f59e0b' : '#38bdf8');
+                circle.setAttribute('stroke-width', hasPointers ? '3.5' : '2.5');
+                circle.setAttribute('filter', `url(#nodeGlow-${tIdx})`);
+                nodeGroup.appendChild(circle);
+
+                // ערך הצומת
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('text-anchor', 'middle');
+                txt.setAttribute('dy', '6');
+                txt.setAttribute('fill', '#ffffff');
+                txt.setAttribute('font-size', '14');
+                txt.setAttribute('font-weight', '700');
+                txt.textContent = node.displayValue !== undefined ? node.displayValue : node.value;
+                nodeGroup.appendChild(txt);
+
+                // תגיות מצביעים מעל הצומת
+                if (hasPointers) {
+                    const ptrG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    ptrG.setAttribute('transform', 'translate(0, -32)');
+
+                    const ptrText = `👇 ${node.pointers.join(', ')}`;
+                    const badgeWidth = Math.max(52, ptrText.length * 8 + 16);
+
+                    const ptrRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    ptrRect.setAttribute('x', -badgeWidth / 2);
+                    ptrRect.setAttribute('y', '-12');
+                    ptrRect.setAttribute('width', badgeWidth);
+                    ptrRect.setAttribute('height', '20');
+                    ptrRect.setAttribute('rx', '10');
+                    ptrRect.setAttribute('fill', '#f59e0b');
+                    ptrRect.setAttribute('stroke', '#ffffff');
+                    ptrRect.setAttribute('stroke-width', '1.5');
+                    ptrG.appendChild(ptrRect);
+
+                    const ptrTxtEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    ptrTxtEl.setAttribute('text-anchor', 'middle');
+                    ptrTxtEl.setAttribute('dy', '3');
+                    ptrTxtEl.setAttribute('fill', '#1e293b');
+                    ptrTxtEl.setAttribute('font-size', '11');
+                    ptrTxtEl.setAttribute('font-weight', '800');
+                    ptrTxtEl.textContent = ptrText;
+                    ptrG.appendChild(ptrTxtEl);
+
+                    nodeGroup.appendChild(ptrG);
+                }
+
+                nodesLayer.appendChild(nodeGroup);
+            };
+
+            renderTreeSvg(rootNode);
+
+            this.dom.queuesStage.appendChild(treeCard);
         });
     }
 

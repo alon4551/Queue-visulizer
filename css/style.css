@@ -2743,13 +2743,7 @@ body.queue-dragging-active * {
    מחסנית (Stack Canister) - תקן משרד החינוך
    ========================================= */
 
-/* סינון תצוגה לפי מצב הסטודיו */
-.queues-stage.mode-queue .stack-track-card {
-    display: none !important;
-}
-.queues-stage.mode-stack .queue-track-card {
-    display: none !important;
-}
+/* סגנונות כרטיסי תור ומחסנית על הבמה */
 
 .stack-track-card {
     display: flex;
@@ -2934,3 +2928,862 @@ body.queue-dragging-active * {
     color: #6d28d9 !important;
     border: 1px solid #c4b5fd !important;
 }
+
+/* =========================================
+   חוליה (Node<T>) - תקן משרד החינוך והבגרות
+   ========================================= */
+
+.badge-node,
+.format-badge-node {
+    background: #e0f2fe !important;
+    color: #0284c7 !important;
+    border: 1px solid #7dd3fc !important;
+}
+
+/* כרטיס שרשרת חוליות על הבמה */
+.node-chain-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 280px;
+    background: #ffffff;
+    border: 2px solid #0284c7;
+    border-radius: 14px;
+    box-shadow: var(--shadow-md);
+    padding: 0.85rem;
+    position: relative;
+    flex-shrink: 0;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 0.85rem;
+}
+
+.node-chain-card:hover {
+    box-shadow: 0 8px 24px rgba(2, 132, 199, 0.18);
+}
+
+.node-chain-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid #e0f2fe;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.node-chain-title-box {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.node-chain-icon {
+    font-size: 1.15rem;
+}
+
+.node-chain-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0369a1;
+}
+
+.node-chain-badge {
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 0.12rem 0.5rem;
+    border-radius: 12px;
+    background: #f0f9ff;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
+    font-family: 'Consolas', monospace;
+    direction: ltr;
+}
+
+.node-count-badge {
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 0.12rem 0.5rem;
+    border-radius: 10px;
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+/* מסילת החוליות האופקית */
+.node-chain-track {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 1.25rem 0.75rem 0.85rem 0.75rem;
+    background: linear-gradient(180deg, #f8fafc 0%, #f0f9ff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    min-height: 125px;
+    display: flex;
+    align-items: flex-end;
+    -webkit-overflow-scrolling: touch;
+}
+
+.node-chain-flow {
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    direction: ltr;
+    text-align: left;
+    min-width: min-content;
+}
+
+.node-empty-msg {
+    margin: auto;
+    color: #0284c7;
+    font-size: 0.82rem;
+    font-style: italic;
+    text-align: center;
+    padding: 1.2rem 0.5rem;
+}
+
+/* עטיפת חוליה בודדת ומצביעים */
+.node-item-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* מיכל תגיות מצביעים מעל החוליה */
+.node-pointers-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: 88px;
+    min-height: 38px;
+    margin-bottom: 6px;
+    gap: 4px;
+    z-index: 5;
+    direction: ltr;
+}
+
+/* תגית מצביע (משתנה שמצביע על החוליה) */
+.node-pointer-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fef3c7;
+    border: 1.5px solid #f59e0b;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: #92400e;
+    box-shadow: 0 2px 5px rgba(245, 158, 11, 0.25);
+    white-space: nowrap;
+    animation: pointerBounce 0.4s ease-out;
+}
+
+.node-pointer-tag.pointer-null {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+    color: #475569;
+    box-shadow: 0 2px 4px rgba(100, 116, 139, 0.15);
+}
+
+.pointer-hand {
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.pointer-var-name {
+    font-family: 'Consolas', monospace;
+    direction: ltr;
+    unicode-bidi: embed;
+}
+
+@keyframes pointerBounce {
+    0% {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.9);
+    }
+    60% {
+        transform: translateY(2px) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* שורת גוף החוליה (קפסולה + חץ) */
+.node-body-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    direction: ltr;
+}
+
+/* קפסולת החוליה [ info | next ] */
+.node-capsule {
+    display: flex;
+    align-items: stretch;
+    border: 2.5px solid #0284c7;
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: 0 4px 10px rgba(2, 132, 199, 0.2);
+    overflow: hidden;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.node-capsule:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(2, 132, 199, 0.3);
+}
+
+.node-capsule.is-head-node {
+    border-color: #2563eb;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.35);
+}
+
+/* תא המידע בחוליה */
+.node-info-compartment {
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff;
+    font-family: 'Consolas', monospace;
+    font-size: 1.05rem;
+    font-weight: 800;
+    min-width: 48px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.node-info-val {
+    direction: ltr;
+    unicode-bidi: embed;
+}
+
+/* תא המצביע הבא בחוליה */
+.node-next-compartment {
+    padding: 8px 10px;
+    background: #f0f9ff;
+    color: #0284c7;
+    border-left: 2px solid #bae6fd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.next-dot {
+    display: inline-block;
+    color: #0284c7;
+}
+
+/* חץ קישור לחוליה הבאה */
+.node-link-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    color: #0284c7;
+    font-weight: 900;
+    user-select: none;
+    padding: 0 4px;
+    transition: transform 0.2s ease;
+}
+
+.node-link-arrow .arrow-glyph {
+    display: inline-block;
+    filter: drop-shadow(0 1px 2px rgba(2, 132, 199, 0.3));
+}
+
+/* קפסולת null בסוף השרשרת */
+.node-null-capsule {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #f8fafc;
+    border: 2.5px dashed #94a3b8;
+    border-radius: 10px;
+    color: #64748b;
+    font-weight: 800;
+    font-family: 'Consolas', monospace;
+    font-size: 0.95rem;
+    user-select: none;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.ground-symbol {
+    font-size: 1.15rem;
+    color: #475569;
+    line-height: 1;
+}
+
+/* =========================================
+   עץ בינארי (BinNode<T>) - תקן משרד החינוך
+   ========================================= */
+
+.badge-binnode,
+.format-badge-binnode {
+    background: #d1fae5 !important;
+    color: #059669 !important;
+    border: 1px solid #6ee7b7 !important;
+}
+
+/* כרטיס עץ בינארי על הבמה */
+.bintree-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 280px;
+    background: #ffffff;
+    border: 2px solid #059669;
+    border-radius: 14px;
+    box-shadow: var(--shadow-md);
+    padding: 0.85rem;
+    position: relative;
+    flex-shrink: 0;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 0.85rem;
+}
+
+.bintree-card:hover {
+    box-shadow: 0 8px 24px rgba(5, 150, 105, 0.18);
+}
+
+.bintree-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid #d1fae5;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.bintree-title-box {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.bintree-icon {
+    font-size: 1.15rem;
+}
+
+.bintree-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #047857;
+}
+
+.bintree-badge {
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 0.12rem 0.5rem;
+    border-radius: 12px;
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    font-family: 'Consolas', monospace;
+    direction: ltr;
+}
+
+.bintree-meta-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bintree-meta-item {
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.12rem 0.45rem;
+    border-radius: 6px;
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #d1fae5;
+}
+
+/* שטח תצוגת ה-SVG של העץ הבינארי */
+.bintree-svg-viewport {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 480px;
+    min-height: 220px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 10px;
+    padding: 0.75rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    border: 1px solid #334155;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    -webkit-overflow-scrolling: touch;
+    direction: ltr;
+}
+
+.bintree-svg {
+    display: block;
+    margin: 0 auto;
+    user-select: none;
+}
+
+/* קבוצות צמתים ב-SVG */
+.bintree-node-group {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.bintree-node-group:hover circle {
+    stroke: #38bdf8 !important;
+    stroke-width: 4px !important;
+}
+
+.tree-edges-layer line {
+    transition: stroke 0.2s ease;
+}
+
+/* =========================================
+   בונה עצים אינטראקטיבי ותבניות מהירות
+   ========================================= */
+
+.tree-presets-bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+    margin-bottom: 0.65rem;
+}
+
+.tree-presets-label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #334155;
+    margin-left: 0.2rem;
+}
+
+.btn-tree-preset {
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 0.22rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-tree-preset:hover {
+    background: #059669;
+    color: #ffffff;
+    border-color: #059669;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+}
+
+.binnode-visual-builder {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0.65rem;
+    margin-top: 0.65rem;
+}
+
+.binnode-builder-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+}
+
+.tree-quick-adder {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: flex-end;
+    background: #ffffff;
+    padding: 0.55rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 0.65rem;
+}
+
+.adder-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.adder-field select,
+.adder-field input {
+    padding: 0.35rem 0.55rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    font-size: 0.82rem;
+    background: #ffffff;
+}
+
+.tree-levels-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.tree-level-group {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.4rem 0.55rem;
+}
+
+.tree-level-header {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #059669;
+    margin-bottom: 0.3rem;
+}
+
+.tree-level-nodes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.tree-node-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 14px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #065f46;
+}
+
+.btn-remove-node {
+    cursor: pointer;
+    color: #ef4444;
+    font-weight: 800;
+    border: none;
+    background: transparent;
+    padding: 0 3px;
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.btn-remove-node:hover {
+    color: #b91c1c;
+}
+
+/* =======================================================
+   התאמה רספונסיבית לטאבלט ולסמארטפון (Mobile & Tablet Friendly)
+   ======================================================= */
+
+/* --- טאבלטים ומסכים בינוניים (עד 1024px) --- */
+@media (max-width: 1024px) {
+    body {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+
+    .main-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+        gap: 0.75rem;
+        padding: 0 0.65rem;
+    }
+
+    .layout-splitter-horizontal {
+        display: none !important;
+    }
+
+    .visual-column {
+        width: 100%;
+        min-width: 0;
+        min-height: 480px;
+    }
+
+    .editor-column {
+        width: 100%;
+        min-width: 0;
+        min-height: 500px;
+    }
+
+    .controls-row {
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        justify-content: space-between;
+    }
+
+    .queues-stage {
+        max-height: 520px;
+        overflow-x: auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .bintree-svg-viewport {
+        max-height: 420px;
+    }
+}
+
+/* --- סמארטפונים וטאבלטים קטנים (עד 768px) --- */
+@media (max-width: 768px) {
+    body {
+        font-size: 14px;
+    }
+
+    /* כותרת האפליקציה */
+    .app-header {
+        padding: 0.45rem 0.65rem;
+    }
+
+    .header-inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.45rem;
+    }
+
+    .brand-title {
+        justify-content: center;
+        text-align: center;
+    }
+
+    .brand-title h1 {
+        font-size: 1.1rem;
+    }
+
+    .brand-title p {
+        font-size: 0.75rem;
+    }
+
+    /* סרגל מצבי סטודיו נגלל עם מגע */
+    .studio-mode-bar {
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 0.2rem 0.35rem;
+        width: 100%;
+        max-width: 100%;
+        scrollbar-width: none;
+    }
+
+    .studio-mode-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .btn-studio-mode {
+        padding: 0.25rem 0.55rem;
+        font-size: 0.74rem;
+        flex-shrink: 0;
+    }
+
+    /* פריסה ראשית */
+    .main-container {
+        padding: 0 0.45rem;
+        margin: 0.25rem auto;
+    }
+
+    /* פקדי הרצה ובקרת צעדים */
+    .controls-bar-body,
+    .controls-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.45rem;
+    }
+
+    .control-btn-group,
+    .playback-controls {
+        display: flex;
+        justify-content: center;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+    }
+
+    .control-btn-group .btn,
+    .playback-controls .btn-ctrl {
+        padding: 0.4rem 0.7rem;
+        min-height: 38px;
+        min-width: 38px;
+        font-size: 0.95rem;
+    }
+
+    .speed-control {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        gap: 0.5rem;
+    }
+
+    .step-counter {
+        text-align: center;
+        width: 100%;
+        font-size: 0.8rem;
+    }
+
+    /* כרטיסי מבני נתונים על הבמה */
+    .queue-track-card,
+    .stack-track-card,
+    .node-chain-card,
+    .bintree-card {
+        min-width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .queue-horizontal-track,
+    .node-chain-track {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .bintree-svg-viewport {
+        max-height: 340px;
+    }
+
+    /* טפסי אתחול קלט */
+    .param-init-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.4rem;
+    }
+
+    .param-init-row .param-input {
+        width: 100%;
+    }
+
+    .param-init-row .btn {
+        width: 100%;
+    }
+
+    .tree-quick-adder {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .adder-field select,
+    .adder-field input {
+        width: 100%;
+    }
+
+    .tree-presets-bar {
+        justify-content: center;
+    }
+
+    /* לשוניות מעקב ומשתנים */
+    .inspector-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .inspector-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .tab-btn {
+        flex-shrink: 0;
+        padding: 0.35rem 0.6rem;
+        font-size: 0.78rem;
+    }
+
+    .variables-table {
+        font-size: 0.8rem;
+    }
+
+    .variables-table td,
+    .variables-table th {
+        padding: 0.35rem 0.45rem;
+        word-break: break-word;
+    }
+
+    /* עורך קוד ולשוניות קבצים */
+    .editor-tabs-bar {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .editor-tabs-bar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .editor-tab-item {
+        flex-shrink: 0;
+    }
+
+    .code-editor-wrapper {
+        min-height: 320px;
+    }
+}
+
+/* --- סמארטפונים צרים במיוחד (עד 480px) --- */
+@media (max-width: 480px) {
+    .header-inner {
+        gap: 0.35rem;
+    }
+
+    .brand-icon {
+        font-size: 1.3rem;
+        padding: 0.15rem 0.4rem;
+    }
+
+    .playback-controls .btn-ctrl {
+        padding: 0.35rem 0.55rem;
+        font-size: 0.85rem;
+        min-height: 36px;
+        min-width: 36px;
+    }
+
+    .node-chain-flow {
+        transform: scale(0.95);
+        transform-origin: left bottom;
+    }
+
+    .node-pointer-tag {
+        padding: 1px 5px;
+        font-size: 0.68rem;
+    }
+
+    .node-capsule {
+        border-width: 2px;
+    }
+
+    .node-info-compartment {
+        padding: 6px 10px;
+        font-size: 0.95rem;
+        min-width: 40px;
+    }
+
+    .node-next-compartment {
+        padding: 6px 8px;
+        font-size: 1.2rem;
+    }
+
+    .bintree-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+}
+
