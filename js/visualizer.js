@@ -3524,6 +3524,7 @@ public class Program
                         <span class="bintree-icon">🌳</span>
                         <span class="bintree-title">עץ בינארי: <strong>${this.escapeHtml(rootVar)}</strong></span>
                         <span class="bintree-badge">BinNode&lt;T&gt;</span>
+                        ${treeEntry.isCurrentNull ? `<span class="active-null-chip" title="המשתנה '${this.escapeHtml(treeEntry.nullVarName || 'root')}' הוא כרגע null">⚠️ ${this.escapeHtml(treeEntry.nullVarName || 'root')} = null</span>` : ''}
                     </div>
                     <div class="bintree-meta-box">
                         <span class="bintree-meta-item">צמתים: <strong>${totalNodes}</strong></span>
@@ -3537,8 +3538,15 @@ public class Program
                                 <stop offset="0%" stop-color="#0284c7" />
                                 <stop offset="100%" stop-color="#0f172a" />
                             </linearGradient>
+                            <linearGradient id="treeNodeActiveGrad-${tIdx}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#f59e0b" />
+                                <stop offset="100%" stop-color="#b45309" />
+                            </linearGradient>
                             <filter id="nodeGlow-${tIdx}" x="-20%" y="-20%" width="140%" height="140%">
                                 <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0284c7" flood-opacity="0.35" />
+                            </filter>
+                            <filter id="nodeActiveGlow-${tIdx}" x="-40%" y="-40%" width="180%" height="180%">
+                                <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#f59e0b" flood-opacity="0.8" />
                             </filter>
                         </defs>
                         <!-- שכבת ענפים (Edges) -->
@@ -3558,14 +3566,18 @@ public class Program
 
                 // ענף שמאל
                 if (node.left) {
+                    const isLeftActive = Boolean(node.left && (node.left.isPrimaryActive || node.left.isActive));
                     const edgeL = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     edgeL.setAttribute('x1', node.x);
                     edgeL.setAttribute('y1', node.y);
                     edgeL.setAttribute('x2', node.left.x);
                     edgeL.setAttribute('y2', node.left.y);
-                    edgeL.setAttribute('stroke', '#64748b');
-                    edgeL.setAttribute('stroke-width', '3');
+                    edgeL.setAttribute('stroke', isLeftActive ? '#f59e0b' : '#64748b');
+                    edgeL.setAttribute('stroke-width', isLeftActive ? '4.5' : '3');
                     edgeL.setAttribute('stroke-linecap', 'round');
+                    if (isLeftActive) {
+                        edgeL.setAttribute('stroke-dasharray', '5 3');
+                    }
                     edgesLayer.appendChild(edgeL);
 
                     const midX = (node.x + node.left.x) / 2 - 10;
@@ -3573,9 +3585,9 @@ public class Program
                     const lblL = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     lblL.setAttribute('x', midX);
                     lblL.setAttribute('y', midY);
-                    lblL.setAttribute('fill', '#94a3b8');
+                    lblL.setAttribute('fill', isLeftActive ? '#f59e0b' : '#94a3b8');
                     lblL.setAttribute('font-size', '11');
-                    lblL.setAttribute('font-weight', '600');
+                    lblL.setAttribute('font-weight', '700');
                     lblL.textContent = 'L';
                     edgesLayer.appendChild(lblL);
 
@@ -3584,14 +3596,18 @@ public class Program
 
                 // ענף ימין
                 if (node.right) {
+                    const isRightActive = Boolean(node.right && (node.right.isPrimaryActive || node.right.isActive));
                     const edgeR = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     edgeR.setAttribute('x1', node.x);
                     edgeR.setAttribute('y1', node.y);
                     edgeR.setAttribute('x2', node.right.x);
                     edgeR.setAttribute('y2', node.right.y);
-                    edgeR.setAttribute('stroke', '#64748b');
-                    edgeR.setAttribute('stroke-width', '3');
+                    edgeR.setAttribute('stroke', isRightActive ? '#f59e0b' : '#64748b');
+                    edgeR.setAttribute('stroke-width', isRightActive ? '4.5' : '3');
                     edgeR.setAttribute('stroke-linecap', 'round');
+                    if (isRightActive) {
+                        edgeR.setAttribute('stroke-dasharray', '5 3');
+                    }
                     edgesLayer.appendChild(edgeR);
 
                     const midX = (node.x + node.right.x) / 2 + 6;
@@ -3599,9 +3615,9 @@ public class Program
                     const lblR = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     lblR.setAttribute('x', midX);
                     lblR.setAttribute('y', midY);
-                    lblR.setAttribute('fill', '#94a3b8');
+                    lblR.setAttribute('fill', isRightActive ? '#f59e0b' : '#94a3b8');
                     lblR.setAttribute('font-size', '11');
-                    lblR.setAttribute('font-weight', '600');
+                    lblR.setAttribute('font-weight', '700');
                     lblR.textContent = 'R';
                     edgesLayer.appendChild(lblR);
 
@@ -3613,15 +3629,29 @@ public class Program
                 nodeGroup.setAttribute('class', 'bintree-node-group');
                 nodeGroup.setAttribute('transform', `translate(${node.x}, ${node.y})`);
 
+                const isPrimary = Boolean(node.isPrimaryActive);
+                const isActive = Boolean(node.isActive);
                 const hasPointers = node.pointers && node.pointers.length > 0;
+
+                // הילת הדגשה זוהרת לצומת הפעיל שהתוכנית נמצאת בו כעת
+                if (isPrimary) {
+                    const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    halo.setAttribute('class', 'bintree-active-halo');
+                    halo.setAttribute('r', '31');
+                    halo.setAttribute('stroke', '#f59e0b');
+                    halo.setAttribute('stroke-width', '2.5');
+                    halo.setAttribute('stroke-dasharray', '5 3');
+                    halo.setAttribute('fill', 'none');
+                    nodeGroup.appendChild(halo);
+                }
 
                 // עיגול הצומת
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circle.setAttribute('r', '22');
-                circle.setAttribute('fill', `url(#treeNodeGrad-${tIdx})`);
-                circle.setAttribute('stroke', hasPointers ? '#f59e0b' : '#38bdf8');
-                circle.setAttribute('stroke-width', hasPointers ? '3.5' : '2.5');
-                circle.setAttribute('filter', `url(#nodeGlow-${tIdx})`);
+                circle.setAttribute('r', isPrimary ? '24' : '22');
+                circle.setAttribute('fill', isPrimary ? `url(#treeNodeActiveGrad-${tIdx})` : `url(#treeNodeGrad-${tIdx})`);
+                circle.setAttribute('stroke', isPrimary ? '#ffffff' : (isActive ? '#f59e0b' : (hasPointers ? '#f59e0b' : '#38bdf8')));
+                circle.setAttribute('stroke-width', isPrimary ? '3.5' : (isActive ? '3.5' : (hasPointers ? '3' : '2.5')));
+                circle.setAttribute('filter', isPrimary ? `url(#nodeActiveGlow-${tIdx})` : `url(#nodeGlow-${tIdx})`);
                 nodeGroup.appendChild(circle);
 
                 // ערך הצומת
@@ -3629,15 +3659,16 @@ public class Program
                 txt.setAttribute('text-anchor', 'middle');
                 txt.setAttribute('dy', '6');
                 txt.setAttribute('fill', '#ffffff');
-                txt.setAttribute('font-size', '14');
-                txt.setAttribute('font-weight', '700');
+                txt.setAttribute('font-size', isPrimary ? '15' : '14');
+                txt.setAttribute('font-weight', isPrimary ? '800' : '700');
                 txt.textContent = node.displayValue !== undefined ? node.displayValue : node.value;
                 nodeGroup.appendChild(txt);
 
                 // תגיות מצביעים מעל הצומת
                 if (hasPointers) {
                     const ptrG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                    ptrG.setAttribute('transform', 'translate(0, -32)');
+                    const badgeY = isPrimary ? -36 : -32;
+                    ptrG.setAttribute('transform', `translate(0, ${badgeY})`);
 
                     const ptrText = `👇 ${node.pointers.join(', ')}`;
                     const badgeWidth = Math.max(52, ptrText.length * 8 + 16);
@@ -3648,15 +3679,18 @@ public class Program
                     ptrRect.setAttribute('width', badgeWidth);
                     ptrRect.setAttribute('height', '20');
                     ptrRect.setAttribute('rx', '10');
-                    ptrRect.setAttribute('fill', '#f59e0b');
+                    ptrRect.setAttribute('fill', isPrimary ? '#f59e0b' : (isActive ? '#f59e0b' : '#38bdf8'));
                     ptrRect.setAttribute('stroke', '#ffffff');
-                    ptrRect.setAttribute('stroke-width', '1.5');
+                    ptrRect.setAttribute('stroke-width', isPrimary ? '2' : '1.5');
+                    if (isPrimary) {
+                        ptrRect.setAttribute('filter', `url(#nodeActiveGlow-${tIdx})`);
+                    }
                     ptrG.appendChild(ptrRect);
 
                     const ptrTxtEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     ptrTxtEl.setAttribute('text-anchor', 'middle');
                     ptrTxtEl.setAttribute('dy', '3');
-                    ptrTxtEl.setAttribute('fill', '#1e293b');
+                    ptrTxtEl.setAttribute('fill', '#0f172a');
                     ptrTxtEl.setAttribute('font-size', '11');
                     ptrTxtEl.setAttribute('font-weight', '800');
                     ptrTxtEl.textContent = ptrText;

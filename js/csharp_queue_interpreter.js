@@ -1203,8 +1203,11 @@ class BinNodeInstance {
     constructor(value, left = null, right = null) {
         this.id = 'bin_' + (++_binNodeIdCounter);
         this._value = value;
-        this._left = left;
-        this._right = right;
+        this._left = null;
+        this._right = null;
+        this._parent = null;
+        if (left) this.setLeft(left);
+        if (right) this.setRight(right);
     }
 
     get value() { return this._value; }
@@ -1216,15 +1219,36 @@ class BinNodeInstance {
     get Info() { return this._value; }
     set Info(v) { this._value = v; }
 
+    get parent() { return this._parent; }
+    set parent(p) { this._parent = p; }
+    get Parent() { return this._parent; }
+    set Parent(p) { this._parent = p; }
+    getParent() { return this._parent; }
+    GetParent() { return this._parent; }
+    setParent(p) { this._parent = p; }
+    SetParent(p) { this._parent = p; }
+
+    getRoot() {
+        let curr = this;
+        const seen = new Set();
+        while (curr._parent && curr._parent instanceof BinNodeInstance) {
+            if (seen.has(curr)) break;
+            seen.add(curr);
+            curr = curr._parent;
+        }
+        return curr;
+    }
+    GetRoot() { return this.getRoot(); }
+
     get left() { return this._left; }
-    set left(l) { this._left = l; }
+    set left(l) { this.setLeft(l); }
     get Left() { return this._left; }
-    set Left(l) { this._left = l; }
+    set Left(l) { this.setLeft(l); }
 
     get right() { return this._right; }
-    set right(r) { this._right = r; }
+    set right(r) { this.setRight(r); }
     get Right() { return this._right; }
-    set Right(r) { this._right = r; }
+    set Right(r) { this.setRight(r); }
 
     getValue() { return this._value; }
     GetValue() { return this._value; }
@@ -1237,13 +1261,29 @@ class BinNodeInstance {
 
     getLeft() { return this._left; }
     GetLeft() { return this._left; }
-    setLeft(l) { this._left = l; }
-    SetLeft(l) { this._left = l; }
+    setLeft(l) {
+        if (this._left && this._left instanceof BinNodeInstance && this._left._parent === this) {
+            this._left._parent = null;
+        }
+        this._left = l;
+        if (l && l instanceof BinNodeInstance) {
+            l._parent = this;
+        }
+    }
+    SetLeft(l) { this.setLeft(l); }
 
     getRight() { return this._right; }
     GetRight() { return this._right; }
-    setRight(r) { this._right = r; }
-    SetRight(r) { this._right = r; }
+    setRight(r) {
+        if (this._right && this._right instanceof BinNodeInstance && this._right._parent === this) {
+            this._right._parent = null;
+        }
+        this._right = r;
+        if (r && r instanceof BinNodeInstance) {
+            r._parent = this;
+        }
+    }
+    SetRight(r) { this.setRight(r); }
 
     hasLeft() { return this._left !== null; }
     HasLeft() { return this._left !== null; }
@@ -1644,6 +1684,8 @@ class RuntimeEnvironment {
         // מעקב אחר משתני חוליות ועצים לצורך תצוגה בבמה
         this.knownNodeVars = new Set();
         this.knownBinNodeVars = new Set();
+        this.initialBinNodeTrees = [];
+        this.knownBinNodes = new Set();
 
         // מחסנית קריאות
         this.callStack = [];
@@ -1740,6 +1782,11 @@ class RuntimeEnvironment {
                     this.knownBinNodeVars.add(param.name);
                     const treeInst = buildBinTree(rawVal !== undefined && rawVal !== null ? rawVal : [10, 5, 15, 3, 7]);
                     initialArgs.push(treeInst);
+                    if (treeInst) {
+                        const rootInst = treeInst.getRoot();
+                        this.initialBinNodeTrees.push({ name: param.name, root: rootInst });
+                        this.knownBinNodes.add(rootInst);
+                    }
                 } else {
                     const parsedVal = this.parsePrimitiveParamValue(rawVal, param.type, param.name);
                     initialArgs.push(parsedVal);
@@ -2163,8 +2210,12 @@ class RuntimeEnvironment {
         let returnVal = undefined;
         try {
             for (const stmt of fn.body) {
-                returnVal = this.executeStatement(stmt, scope);
-                if (returnVal !== undefined) {
+                const ret = this.executeStatement(stmt, scope);
+                if (ret && ret.__isReturn) {
+                    returnVal = ret.value;
+                    break;
+                } else if (ret !== undefined) {
+                    returnVal = ret;
                     break;
                 }
             }
@@ -2272,7 +2323,7 @@ class RuntimeEnvironment {
                     val = this.evaluateExpression(stmt.value, scope);
                 }
                 this.recordFrame(stmt.line, `ביצוע return: מחזיר ${this.formatVal(val)}`);
-                return val;
+                return { __isReturn: true, value: val };
             }
         }
     }
@@ -2315,7 +2366,10 @@ class RuntimeEnvironment {
         if (prop.getter && prop.getter.body) {
             for (const stmt of prop.getter.body) {
                 const ret = this.executeStatement(stmt, getterScope);
-                if (ret !== undefined) {
+                if (ret && ret.__isReturn) {
+                    result = ret.value;
+                    break;
+                } else if (ret !== undefined) {
                     result = ret;
                     break;
                 }
@@ -2573,6 +2627,13 @@ class RuntimeEnvironment {
                         this.recordFrame(expr.line, `אתחול והשמת מחסנית חדשה בחלון: ${targetName} = new Stack()`, 'idle', false, null, null, null, targetName);
                         return finalVal;
                     }
+                    if (finalVal instanceof NodeInstance) {
+                        this.knownNodeVars.add(targetName);
+                    }
+                    if (finalVal instanceof BinNodeInstance) {
+                        this.knownBinNodeVars.add(targetName);
+                        if (this.knownBinNodes) this.knownBinNodes.add(finalVal);
+                    }
 
                     this.recordFrame(expr.line, `השמה: ${targetName} = ${this.formatVal(finalVal)}`);
                     return finalVal;
@@ -2707,7 +2768,9 @@ class RuntimeEnvironment {
                     const val = expr.arguments && expr.arguments.length > 0 ? this.evaluateExpression(expr.arguments[0], scope) : 0;
                     const left = expr.arguments && expr.arguments.length > 1 ? this.evaluateExpression(expr.arguments[1], scope) : null;
                     const right = expr.arguments && expr.arguments.length > 2 ? this.evaluateExpression(expr.arguments[2], scope) : null;
-                    return new BinNodeInstance(val, left, right);
+                    const newBin = new BinNodeInstance(val, left, right);
+                    if (this.knownBinNodes) this.knownBinNodes.add(newBin);
+                    return newBin;
                 }
 
                 if (this.classes.has(expr.className)) {
@@ -2847,7 +2910,10 @@ class RuntimeEnvironment {
                             let res = null;
                             for (const stmt of methodDecl.body) {
                                 const ret = this.executeStatement(stmt, mScope);
-                                if (ret !== undefined) {
+                                if (ret && ret.__isReturn) {
+                                    res = ret.value;
+                                    break;
+                                } else if (ret !== undefined) {
                                     res = ret;
                                     break;
                                 }
@@ -2880,7 +2946,10 @@ class RuntimeEnvironment {
                         let res = undefined;
                         for (const stmt of methodDecl.body) {
                             const ret = this.executeStatement(stmt, methodScope);
-                            if (ret !== undefined) {
+                            if (ret && ret.__isReturn) {
+                                res = ret.value;
+                                break;
+                            } else if (ret !== undefined) {
                                 res = ret;
                                 break;
                             }
@@ -3284,73 +3353,150 @@ class RuntimeEnvironment {
         }
 
         // שכפול מצב עצי בינארי (BinNode<T>)
-        const treeVars = new Map(); // varName -> BinNodeInstance or null
-        for (const frame of this.callStack) {
-            frame.scope.forEach((v, k) => {
+        // שימור העץ המקורי השלם על הבמה והדגשת המיקום המדויק של התוכנית (Active Node)
+        const currentCallFrame = this.callStack.length > 0 ? this.callStack[this.callStack.length - 1] : null;
+
+        // 1. זיהוי צמתים ומצביעים פעילים במסגרת הקריאה הנוכחית (Top Call Frame)
+        const activeBinNodeIds = new Set();
+        let primaryActiveId = null;
+        let isCurrentNull = false;
+        let nullVarName = null;
+
+        if (currentCallFrame && currentCallFrame.scope) {
+            const activeBinVars = [];
+            currentCallFrame.scope.forEach((v, k) => {
                 if (v instanceof BinNodeInstance) {
-                    treeVars.set(k, v);
+                    activeBinNodeIds.add(v.id);
+                    if (this.knownBinNodes) this.knownBinNodes.add(v);
+                    activeBinVars.push({ name: k, id: v.id, node: v });
                 } else if (v === null && this.knownBinNodeVars && this.knownBinNodeVars.has(k)) {
-                    treeVars.set(k, null);
+                    isCurrentNull = true;
+                    nullVarName = k;
+                }
+            });
+
+            if (activeBinVars.length === 1) {
+                primaryActiveId = activeBinVars[0].id;
+            } else if (activeBinVars.length > 1) {
+                const traversalVar = activeBinVars.find(bv => /^(curr|pos|p|ptr|current|temp|child|target|walk|node|n)\d*$/i.test(bv.name));
+                if (traversalVar) {
+                    primaryActiveId = traversalVar.id;
+                } else {
+                    primaryActiveId = activeBinVars[activeBinVars.length - 1].id;
+                }
+            }
+        }
+
+        // 2. איסוף כל השורשים הייחודיים (Root Trees) השלמים
+        const rootNodesMap = new Map(); // rootId -> { rootNode, rootVarName }
+
+        // א. שורשים ראשוניים שהוגדרו בכניסה לתוכנית
+        if (this.initialBinNodeTrees && this.initialBinNodeTrees.length > 0) {
+            this.initialBinNodeTrees.forEach(initT => {
+                if (initT.root && initT.root instanceof BinNodeInstance) {
+                    const trueRoot = initT.root.getRoot();
+                    rootNodesMap.set(trueRoot.id, { rootNode: trueRoot, rootVarName: initT.name || 'root' });
                 }
             });
         }
 
+        // ב. שורשים מתוך כלל המופעים והמשתנים במחסנית הקריאות
+        for (const frame of this.callStack) {
+            frame.scope.forEach((v, k) => {
+                if (v instanceof BinNodeInstance) {
+                    if (this.knownBinNodes) this.knownBinNodes.add(v);
+                    const trueRoot = v.getRoot();
+                    if (!rootNodesMap.has(trueRoot.id)) {
+                        rootNodesMap.set(trueRoot.id, { rootNode: trueRoot, rootVarName: k });
+                    }
+                }
+            });
+        }
+
+        if (this.knownBinNodes) {
+            this.knownBinNodes.forEach(node => {
+                if (node instanceof BinNodeInstance) {
+                    const trueRoot = node.getRoot();
+                    if (!rootNodesMap.has(trueRoot.id)) {
+                        rootNodesMap.set(trueRoot.id, { rootNode: trueRoot, rootVarName: 'tree' });
+                    }
+                }
+            });
+        }
+
+        // 3. סריאליזציה של כל עץ שלם מתוך השורש שלו עם סימון מיקום וחיצים
         const treesSnapshot = [];
-        if (treeVars.size > 0) {
+        rootNodesMap.forEach(({ rootNode, rootVarName }) => {
+            const allIds = new Set();
+
             const serializeBinNode = (node, visited = new Set()) => {
                 if (!node || !(node instanceof BinNodeInstance)) return null;
                 if (visited.has(node.id)) {
-                    return { id: node.id, value: node.value, displayValue: this.formatVal(node.value), isCycle: true, pointers: [] };
+                    return { id: node.id, value: node.value, displayValue: this.formatVal(node.value), isCycle: true, pointers: [], activePointers: [] };
                 }
                 visited.add(node.id);
+                allIds.add(node.id);
 
-                const pointers = [];
-                treeVars.forEach((tv, tName) => {
-                    if (tv && tv.id === node.id) {
-                        pointers.push(tName);
+                // איסוף מצביעים פעילים מהמסגרת העליונה
+                const activePointers = [];
+                if (currentCallFrame && currentCallFrame.scope) {
+                    currentCallFrame.scope.forEach((v, k) => {
+                        if (v instanceof BinNodeInstance && v.id === node.id) {
+                            activePointers.push(k);
+                        }
+                    });
+                }
+
+                // איסוף מצביעים מכלל מסגרות הקריאה במחסנית
+                const allPointers = [...activePointers];
+                for (let fIdx = this.callStack.length - 2; fIdx >= 0; fIdx--) {
+                    const f = this.callStack[fIdx];
+                    if (f && f.scope) {
+                        f.scope.forEach((v, k) => {
+                            if (v instanceof BinNodeInstance && v.id === node.id) {
+                                if (!activePointers.includes(k)) {
+                                    const qualified = (currentCallFrame && currentCallFrame.scope && currentCallFrame.scope.has(k))
+                                        ? `${k} (קריאה ${fIdx + 1})`
+                                        : k;
+                                    if (!allPointers.includes(qualified)) {
+                                        allPointers.push(qualified);
+                                    }
+                                }
+                            }
+                        });
                     }
-                });
+                }
+
+                const isPrimary = (node.id === primaryActiveId);
+                const isActive = isPrimary || activeBinNodeIds.has(node.id);
 
                 return {
                     id: node.id,
                     value: (node.value !== null && node.value !== undefined) ? node.value : 0,
                     displayValue: this.formatVal(node.value),
-                    pointers,
+                    pointers: allPointers,
+                    activePointers: activePointers,
+                    isActive: isActive,
+                    isPrimaryActive: isPrimary,
                     left: serializeBinNode(node.left, visited),
                     right: serializeBinNode(node.right, visited)
                 };
             };
 
-            treeVars.forEach((treeInst, varName) => {
-                if (treeInst instanceof BinNodeInstance) {
-                    // בדיקה אם הצומת הוא כבר תת-עץ של עץ שנרשם
-                    let alreadyChild = false;
-                    for (const existing of treesSnapshot) {
-                        const hasId = existing.allIds && (existing.allIds.has ? existing.allIds.has(treeInst.id) : existing.allIds.includes(treeInst.id));
-                        if (hasId) {
-                            alreadyChild = true;
-                            break;
-                        }
-                    }
-                    if (!alreadyChild) {
-                        const allIds = new Set();
-                        const collectIds = (n) => {
-                            if (!n) return;
-                            allIds.add(n.id);
-                            collectIds(n.left);
-                            collectIds(n.right);
-                        };
-                        collectIds(treeInst);
-                        const treeData = serializeBinNode(treeInst);
-                        treesSnapshot.push({
-                            rootVar: varName,
-                            tree: treeData,
-                            allIds: allIds
-                        });
-                    }
-                }
-            });
-        }
+            const treeData = serializeBinNode(rootNode);
+            if (treeData) {
+                const treeContainsActive = Boolean(primaryActiveId && allIds.has(primaryActiveId));
+                treesSnapshot.push({
+                    rootVar: rootVarName,
+                    tree: treeData,
+                    allIds: allIds,
+                    hasActiveNode: treeContainsActive,
+                    activeNodeId: primaryActiveId,
+                    isCurrentNull: (isCurrentNull && (!treeContainsActive || allIds.size > 0)),
+                    nullVarName: nullVarName
+                });
+            }
+        });
 
         // אם בצעד זה מחסנית הקריאות התרוקנה (סיום פונקציה/תוכנית), נשמר את תמונת המצב האחרונה של החוליות והעצים
         if (nodesSnapshot.length === 0 && this.frames.length > 0) {

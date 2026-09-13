@@ -3346,8 +3346,43 @@ body.queue-dragging-active * {
     stroke-width: 4px !important;
 }
 
+/* הדגשת צומת פעיל בעץ הבינארי (Active Node Highlighting) */
+@keyframes activeHaloPulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.95;
+    }
+    50% {
+        transform: scale(1.15);
+        opacity: 0.45;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 0.95;
+    }
+}
+
+.bintree-active-halo {
+    animation: activeHaloPulse 2s ease-in-out infinite;
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+
+.active-null-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 12px;
+    color: #fca5a5;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
 .tree-edges-layer line {
-    transition: stroke 0.2s ease;
+    transition: stroke 0.2s ease, stroke-width 0.2s ease;
 }
 
 /* =========================================
